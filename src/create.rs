@@ -97,7 +97,7 @@ fn capture_cards(card_path: &Path) -> io::Result<()> {
                 let area = frame.area();
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
-                    .constraints([Constraint::Min(3), Constraint::Length(3)])
+                    .constraints([Constraint::Min(3), Constraint::Length(4)])
                     .split(area);
 
                 let editor_block = Block::default()
@@ -109,7 +109,7 @@ fn capture_cards(card_path: &Path) -> io::Result<()> {
                 frame.render_widget(editor, chunks[0]);
 
                 let mut help =
-                    String::from("Cmd/Ctrl+Enter to save • Esc/Ctrl-C to exit • Enter for newline");
+                    String::from("Ctrl+S to save • Esc/Ctrl-C to exit • Enter for newline");
                 if let Some(message) = &status {
                     help.push('\n');
                     help.push_str(message);
@@ -134,7 +134,6 @@ fn capture_cards(card_path: &Path) -> io::Result<()> {
                 if key.kind != KeyEventKind::Press {
                     continue;
                 }
-
                 if key.code == KeyCode::Esc
                     || (key.code == KeyCode::Char('c')
                         && key.modifiers.contains(KeyModifiers::CONTROL))
@@ -142,10 +141,7 @@ fn capture_cards(card_path: &Path) -> io::Result<()> {
                     break;
                 }
 
-                if key.code == KeyCode::Enter
-                    && (key.modifiers.contains(KeyModifiers::SUPER)
-                        || key.modifiers.contains(KeyModifiers::CONTROL))
-                {
+                if key.code == KeyCode::Char('s') && key.modifiers.contains(KeyModifiers::CONTROL) {
                     if input.trim().is_empty() {
                         status = Some(String::from("Card not saved (empty)."));
                     } else {
