@@ -1,6 +1,5 @@
 use clap::Parser;
 
-
 use self::crud::DB;
 
 mod card;
