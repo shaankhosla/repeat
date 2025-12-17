@@ -35,6 +35,7 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Run tests
         run: cargo test --verbose
+
   build_macos:
     name: Build on macOS
     runs-on: macos-latest
@@ -51,9 +52,8 @@ jobs:
       - name: Create tarball
         run: |
           mkdir -p dist
-          cd target/aarch64-apple-darwin/release
-          tar -czf repeat-darwin-arm64.tar.gz repeat
-          mv repeat-darwin-arm64.tar.gz ../../../..
+          tar -czf dist/repeat-darwin-arm64.tar.gz -C target/aarch64-apple-darwin/release repeat
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
