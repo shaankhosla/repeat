@@ -71,56 +71,60 @@ jobs:
         files: ./dist/repeat
 
   homebrew:
-    name: Update Homebrew Formula
+    name: Publish to Homebrew tap
     runs-on: ubuntu-latest
     needs: release
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Checkout Homebrew tap
+      - name: Checkout tap repository
         uses: actions/checkout@v4
         with:
           repository: shaankhosla/homebrew-tap
-          token: ${{ secrets.GITHUB_TOKEN }}
-          persist-credentials: false
+          token: ${{ secrets.HOMEBREW_TAP_PAT }}
+          ref: main
 
-      - name: Download release binary
-        run: |
-          curl -L -o repeat "https://github.com/${{ github.repository }}/releases/latest/download/repeat"
-          sha256=$(sha256sum repeat | cut -d ' ' -f 1)
-          echo "sha256=$sha256" >> $GITHUB_ENV
+      - name: Download released binary
+        uses: actions/download-artifact@v4
+        with:
+          name: binary
+          path: ./dist
 
-      - name: Create or update formula
-        shell: bash
+      - name: Compute SHA256
+        id: sha
         run: |
+          sha256sum ./dist/repeat | awk '{print $1}' > checksum.txt
+          echo "sha256=$(cat checksum.txt)" >> $GITHUB_OUTPUT
+
+      - name: Generate formula
+        run: |
+          FORMULA_NAME="repeat"
+          BIN_URL="https://github.com/${{ github.repository }}/releases/download/${{ needs.release.outputs.tag_name }}/repeat"
+          SHA256="${{ steps.sha.outputs.sha256 }}"
+
           mkdir -p Formula
-          formula_path="Formula/repeat.rb"
+          cat > Formula/${FORMULA_NAME}.rb <<EOF
+          class ${FORMULA_NAME.capitalize()} < Formula
+            desc "TUI tool for spaced repetition"
+            homepage "https://github.com/${{ github.repository }}"
+            url "${BIN_URL}"
+            sha256 "${SHA256}"
+            version "${{ needs.release.outputs.tag_name }}"
+            license "Apache-2.0"
 
-          if [ ! -f "$formula_path" ]; then
-            echo "Creating new formula..."
-            cat > "$formula_path" <<'EOF'
-  class Repeat < Formula
-    desc "A short description of your CLI tool"
-    homepage "https://github.com/${{ github.repository }}"
-    url "https://github.com/${{ github.repository }}/releases/download/${{ needs.release.outputs.tag_name }}/repeat"
-    sha256 "${{ env.sha256 }}"
-    version "${{ needs.release.outputs.tag_name }}"
+            def install
+              bin.install "repeat"
+            end
 
-    def install
-      bin.install "repeat"
-    end
-  end
-  EOF
-          else
-            echo "Updating existing formula..."
-            sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${{ needs.release.outputs.tag_name }}/repeat\"|" "$formula_path"
-            sed -i "s|sha256 \".*\"|sha256 \"${{ env.sha256 }}\"|" "$formula_path"
-            sed -i "s|version \".*\"|version \"${{ needs.release.outputs.tag_name }}\"|" "$formula_path"
-          fi
+            test do
+              system "#{bin}/repeat", "--version"
+            end
+          end
+          EOF
 
-      - name: Commit and push changes
+      - name: Commit and push formula
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/repeat.rb
-          git commit -m "Update formula for ${{ needs.release.outputs.tag_name }}" || echo "No changes to commit"
-          git push
+          git add Formula/
+          git commit -m "Update formula to ${{ needs.release.outputs.tag_name }}"
+          git push origin main
