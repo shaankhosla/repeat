@@ -4,18 +4,17 @@ use crate::drill::register_all_cards;
 use anyhow::Result;
 
 pub async fn run(db: &DB, paths: Vec<String>) -> Result<usize> {
-    let card_hash = register_all_cards(db, paths).await?;
-    let count = card_hash.len();
-    eprintln!("Found {} unique cards and registered them to the DB", count);
-    let stats = db.collection_stats().await?;
+    let card_hashes = register_all_cards(db, paths).await?;
+    let count = card_hashes.len();
+    let stats = db.collection_stats(&card_hashes).await?;
     print_stats(&stats);
     Ok(count)
 }
 
 fn print_stats(stats: &CardStats) {
     println!(
-        "Cards: total {} • new {} • reviewed {}",
-        stats.total_cards, stats.new_cards, stats.reviewed_cards
+        "Number of cards {} • new {} • reviewed {}",
+        stats.num_cards, stats.new_cards, stats.reviewed_cards
     );
     println!(
         "Due now: {} ({} overdue)",
@@ -30,4 +29,8 @@ fn print_stats(stats: &CardStats) {
         }
     }
     println!("Due in next 30 days: {}", stats.upcoming_month);
+    println!(
+        "Total number of cards indexed in DB: {}",
+        stats.total_cards_in_db
+    );
 }

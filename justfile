@@ -11,7 +11,7 @@ create:
     cargo run -- create test.md
 
 check:
-    cargo run -- check
+    cargo run -- check test_data/
 
 drill:
     cargo run -- drill

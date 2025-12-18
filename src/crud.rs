@@ -6,7 +6,7 @@ use sqlx::SqlitePool;
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -20,7 +20,8 @@ use crate::fsrs::update_performance;
 
 #[derive(Debug, Default)]
 pub struct CardStats {
-    pub total_cards: i64,
+    pub total_cards_in_db: i64,
+    pub num_cards: i64,
     pub new_cards: i64,
     pub reviewed_cards: i64,
     pub due_cards: i64,
@@ -229,78 +230,72 @@ impl DB {
         Ok(cards)
     }
 
-    pub async fn collection_stats(&self) -> Result<CardStats> {
-        let now_dt = chrono::Utc::now();
-        let now = now_dt.to_rfc3339();
-        let week_horizon = (now_dt + chrono::Duration::days(7)).to_rfc3339();
-        let month_horizon = (now_dt + chrono::Duration::days(30)).to_rfc3339();
+    pub async fn collection_stats(&self, card_hashes: &HashMap<String, Card>) -> Result<CardStats> {
+        let now = chrono::Utc::now();
+        let week_horizon = now + chrono::Duration::days(7);
+        let month_horizon = now + chrono::Duration::days(30);
 
-        let row = sqlx::query(
-            r#"
-            SELECT
-                COUNT(*) AS total_cards,
-                COALESCE(SUM(CASE WHEN review_count = 0 THEN 1 ELSE 0 END), 0) AS new_cards,
-                COALESCE(SUM(CASE WHEN review_count > 0 THEN 1 ELSE 0 END), 0) AS reviewed_cards,
-                COALESCE(SUM(CASE WHEN due_date IS NULL OR due_date <= ? THEN 1 ELSE 0 END), 0) AS due_cards,
-                COALESCE(SUM(CASE WHEN due_date IS NOT NULL AND due_date < ? THEN 1 ELSE 0 END), 0) AS overdue_cards
-            FROM cards
-            "#,
-        )
-        .bind(&now)
-        .bind(&now)
-        .fetch_one(&self.pool)
-        .await?;
+        let mut stats = CardStats::default();
+        stats.num_cards = card_hashes.len() as i64;
+        let mut upcoming_week_counts: BTreeMap<String, i64> = BTreeMap::new();
 
-        let upcoming_month: (i64,) = sqlx::query_as(
-            r#"
-            SELECT
-                COALESCE(COUNT(1), 0) AS upcoming_month
-            FROM cards
-            WHERE due_date IS NOT NULL
-              AND due_date > ?
-              AND due_date <= ?
-            "#,
-        )
-        .bind(&now)
-        .bind(&month_horizon)
-        .fetch_one(&self.pool)
-        .await?;
-
-        let mut upcoming_week = Vec::new();
         let mut rows = sqlx::query(
             r#"
-            SELECT
-                strftime('%Y-%m-%d', due_date) AS due_day,
-                COUNT(1) AS count
+            SELECT card_hash, review_count, due_date
             FROM cards
-            WHERE due_date IS NOT NULL
-              AND due_date > ?
-              AND due_date <= ?
-            GROUP BY due_day
-            ORDER BY due_day
             "#,
         )
-        .bind(&now)
-        .bind(&week_horizon)
         .fetch(&self.pool);
 
         while let Some(row) = rows.try_next().await? {
-            let day: Option<String> = row.try_get("due_day")?;
-            let count: i64 = row.get("count");
-            if let Some(day) = day {
-                upcoming_week.push(UpcomingCount { day, count });
+            let card_hash: String = row.get("card_hash");
+            stats.total_cards_in_db += 1;
+            if !card_hashes.contains_key(&card_hash) {
+                continue;
+            }
+
+            let review_count: i64 = row.get("review_count");
+            if review_count == 0 {
+                stats.new_cards += 1;
+            } else {
+                stats.reviewed_cards += 1;
+            }
+
+            let due_date = row
+                .try_get::<Option<String>, _>("due_date")?
+                .and_then(|due| chrono::DateTime::parse_from_rfc3339(&due).ok())
+                .map(|dt| dt.with_timezone(&chrono::Utc));
+
+            match due_date {
+                None => {
+                    stats.due_cards += 1;
+                }
+                Some(due_date) => {
+                    if due_date <= now {
+                        stats.due_cards += 1;
+                        if due_date < now {
+                            stats.overdue_cards += 1;
+                        }
+                    } else {
+                        if due_date <= week_horizon {
+                            let day = due_date.format("%Y-%m-%d").to_string();
+                            *upcoming_week_counts.entry(day).or_insert(0) += 1;
+                        }
+
+                        if due_date <= month_horizon {
+                            stats.upcoming_month += 1;
+                        }
+                    }
+                }
             }
         }
 
-        Ok(CardStats {
-            total_cards: row.get("total_cards"),
-            new_cards: row.get("new_cards"),
-            reviewed_cards: row.get("reviewed_cards"),
-            due_cards: row.get("due_cards"),
-            overdue_cards: row.get("overdue_cards"),
-            upcoming_week,
-            upcoming_month: upcoming_month.0,
-        })
+        stats.upcoming_week = upcoming_week_counts
+            .into_iter()
+            .map(|(day, count)| UpcomingCount { day, count })
+            .collect();
+
+        Ok(stats)
     }
 }
 
