@@ -147,10 +147,15 @@ pub fn content_to_card(
         if cloze_idxs.is_empty() {
             return Err(anyhow!("Card is a cloze but can't find cloze text in []"));
         }
+        let cloze_idx_start = cloze_idxs[0].0;
+        let cloze_idx_end = cloze_idxs[0].1;
+        if cloze_idx_end - cloze_idx_start <= 1 {
+            return Err(anyhow!("Card is a cloze but can't find cloze text in []"));
+        }
         let content = CardContent::Cloze {
             text: c,
-            start: cloze_idxs[0].0,
-            end: cloze_idxs[0].1,
+            start: cloze_idx_start,
+            end: cloze_idx_end,
         };
         Ok(Card {
             file_path: card_path.to_path_buf(),

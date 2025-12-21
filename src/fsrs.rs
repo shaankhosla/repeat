@@ -21,7 +21,7 @@ pub fn calulate_interval(recall: f64, stability: f64) -> f64 {
 
 pub fn initial_stability(review_status: ReviewStatus) -> f64 {
     match review_status {
-        ReviewStatus::Fail => WEIGHTS[1],
+        ReviewStatus::Fail => WEIGHTS[0],
         ReviewStatus::Pass => WEIGHTS[2],
     }
 }
@@ -32,14 +32,18 @@ fn calculate_stability(
     recall: f64,
     review_status: ReviewStatus,
 ) -> f64 {
+    if review_status == ReviewStatus::Fail {
+        let d_f = difficulty.powf(-WEIGHTS[12]);
+        let s_f = (stability + 1.0).powf(WEIGHTS[13]) - 1.0;
+        let r_f = f64::exp(WEIGHTS[14] * (1.0 - recall));
+        let c_f = WEIGHTS[11];
+        let s_f = d_f * s_f * r_f * c_f;
+        return f64::min(s_f, stability);
+    }
     let t_d = 11.0 - difficulty;
     let t_s = stability.powf(-WEIGHTS[9]);
     let t_r = f64::exp(WEIGHTS[10] * (1.0 - recall)) - 1.0;
-    let h = if review_status == ReviewStatus::Fail {
-        WEIGHTS[15]
-    } else {
-        1.0
-    };
+    let h = 1.0;
     let b = 1.0;
     let c = f64::exp(WEIGHTS[8]);
     let alpha = 1.0 + t_d * t_s * t_r * h * b * c;
@@ -87,7 +91,7 @@ impl ReviewStatus {
     pub fn score(&self) -> usize {
         match self {
             ReviewStatus::Pass => 3,
-            ReviewStatus::Fail => 2,
+            ReviewStatus::Fail => 1,
         }
     }
 }
@@ -158,7 +162,10 @@ pub fn update_performance(
 #[cfg(test)]
 mod tests {
 
-    use super::{Performance, ReviewStatus, ReviewedPerformance, update_performance};
+    use super::{
+        MAX_INTERVAL, MIN_INTERVAL, Performance, ReviewStatus, ReviewedPerformance,
+        update_performance,
+    };
 
     use chrono::Duration;
 
@@ -217,11 +224,51 @@ mod tests {
             review_count,
         } = result;
         assert_eq!(last_reviewed_at, reviewed_at);
-        dbg!(&result);
         assert!(approx_eq(stability, 10.739));
         assert!(approx_eq(difficulty, 5.280));
         assert!(approx_eq(interval_raw, 10.739));
         assert_eq!(interval_days, 11);
         assert_eq!(review_count, 2);
+    }
+
+    #[test]
+    fn test_reviews() {
+        let mut reviewed_at = chrono::Utc::now();
+        let mut performance = update_performance(Performance::New, ReviewStatus::Pass, reviewed_at);
+        for _ in 0..100 {
+            let interval_raw = performance.interval_raw;
+            let interval_rounded: f64 = interval_raw.round();
+            let interval_clamped: f64 = interval_rounded.clamp(MIN_INTERVAL, MAX_INTERVAL);
+            let interval_duration: Duration = Duration::days(interval_clamped as i64);
+            reviewed_at += interval_duration;
+
+            performance = update_performance(
+                Performance::Reviewed(performance),
+                ReviewStatus::Pass,
+                reviewed_at,
+            );
+        }
+        assert_eq!(performance.review_count, 101);
+        assert_eq!(performance.interval_days, 256);
+        assert!(approx_eq(performance.difficulty, 5.28));
+        assert!(approx_eq(performance.stability, 26315.03905930558));
+
+        for _ in 0..100 {
+            let interval_raw = performance.interval_raw;
+            let interval_rounded: f64 = interval_raw.round();
+            let interval_clamped: f64 = interval_rounded.clamp(MIN_INTERVAL, MAX_INTERVAL);
+            let interval_duration: Duration = Duration::days(interval_clamped as i64);
+            reviewed_at += interval_duration;
+
+            performance = update_performance(
+                Performance::Reviewed(performance),
+                ReviewStatus::Fail,
+                reviewed_at,
+            );
+        }
+        assert_eq!(performance.review_count, 201);
+        assert_eq!(performance.interval_days, 1);
+        assert!(approx_eq(performance.difficulty, 9.9337));
+        assert!(approx_eq(performance.stability, 0.148424));
     }
 }

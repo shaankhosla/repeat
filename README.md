@@ -119,6 +119,16 @@ cargo test
 
 The repository also ships a `just precommit` recipe that runs the same checks.
 
+
+## Roadmap
+
+- [ ] Import from Anki
+- [ ] Allow scrolling to other cards in a collection while creating a new card
+- [ ] Edit an existing card while keeping the progress intact
+- [ ] Allow for a fuzzy search of existing cards
+- [ ] Use LLMs to import from various content sources
+
+
 ## License
 
 Licensed under the Apache License, Version 2.0. See `LICENSE` for details.

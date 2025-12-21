@@ -186,7 +186,11 @@ async fn capture_cards(db: &DB, card_path: &Path) -> io::Result<()> {
                         }
                         Err(e) => {
                             card_last_save_attempt = Some(std::time::Instant::now());
-                            status = Some(format!("Unable to save card: {}", e));
+                            let flat_error = e.chain()
+                                    .map(|cause| cause.to_string().replace('\n', " "))
+                                    .collect::<Vec<_>>()
+                                    .join(": ");
+                            status = Some(format!("Unable to save card: {}", flat_error));
                         }
                     }
                     continue;

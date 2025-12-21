@@ -77,6 +77,7 @@ pub async fn register_all_cards(db: &DB, paths: Vec<String>) -> Result<HashMap<S
 struct DrillState<'a> {
     db: &'a DB,
     cards: Vec<Card>,
+    redo_cards: Vec<Card>,
     current_idx: usize,
     show_answer: bool,
     last_action: Option<ReviewStatus>,
@@ -87,14 +88,22 @@ impl<'a> DrillState<'a> {
         Self {
             db,
             cards,
+            redo_cards: Vec::new(),
             current_idx: 0,
             show_answer: false,
             last_action: None,
         }
     }
 
-    fn current_card(&self) -> Option<&Card> {
-        self.cards.get(self.current_idx)
+    fn current_card(&mut self) -> Option<Card> {
+        if self.current_idx >= self.cards.len() {
+            if self.redo_cards.is_empty() {
+                return None;
+            }
+            self.cards = std::mem::take(&mut self.redo_cards);
+            self.current_idx = 0;
+        }
+        self.cards.get(self.current_idx).cloned()
     }
 
     fn reveal_answer(&mut self) {
@@ -106,8 +115,11 @@ impl<'a> DrillState<'a> {
             .current_card()
             .expect("card should exist when handling review");
         self.db
-            .update_card_performance(current_card, action)
+            .update_card_performance(&current_card, action)
             .await?;
+        if action == ReviewStatus::Fail {
+            self.redo_cards.push(current_card.clone());
+        }
 
         self.last_action = Some(action);
         self.current_idx += 1;
@@ -116,7 +128,7 @@ impl<'a> DrillState<'a> {
     }
 
     fn is_complete(&self) -> bool {
-        self.current_idx >= self.cards.len()
+        self.current_idx >= self.cards.len() && self.redo_cards.is_empty()
     }
 }
 
@@ -156,14 +168,15 @@ async fn start_drill_session(db: &DB, cards: Vec<Card>) -> Result<()> {
                         .split(area);
 
                     let header = format!(
-                        " Card {}/{} • {} ",
+                        " Card {}/{} • {} to redo • {} ",
                         state.current_idx + 1,
                         state.cards.len(),
+                        state.redo_cards.len(),
                         card.file_path.display()
                     )
                     .bold();
 
-                    let content = format_card_text(card, state.show_answer);
+                    let content = format_card_text(&card, state.show_answer);
                     let card_widget = Paragraph::new(content)
                         .block(Block::default().title(header).borders(Borders::ALL))
                         .wrap(Wrap { trim: false });
