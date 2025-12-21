@@ -52,8 +52,8 @@ fn dashboard_loop<B: ratatui::backend::Backend>(
     loop {
         terminal.draw(|frame| draw_dashboard(frame, stats))?;
 
-        if event::poll(Duration::from_millis(200))? {
-            if let Event::Key(key) = event::read()? {
+        if event::poll(Duration::from_millis(200))?
+            && let Event::Key(key) = event::read()? {
                 if key.kind != KeyEventKind::Press {
                     continue;
                 }
@@ -63,7 +63,6 @@ fn dashboard_loop<B: ratatui::backend::Backend>(
                     break;
                 }
             }
-        }
     }
     Ok(())
 }
