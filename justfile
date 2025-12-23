@@ -7,6 +7,7 @@ precommit:
 
 delete_db:
     rm "/Users/shaankhosla/Library/Application Support/repeat/cards.db"
+    DATABASE_URL="sqlite:///Users/shaankhosla/Library/Application Support/repeat/cards.db" sqlx migrate run
 
 create:
     cargo run -- create /Users/shaankhosla/Desktop/sample_repeat_cards/test.md

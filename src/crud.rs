@@ -1,9 +1,8 @@
 use anyhow::Result;
 use directories::ProjectDirs;
 use futures::TryStreamExt;
-use sqlx::SqlitePool;
-
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::SqlitePool;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -37,12 +36,7 @@ impl DB {
             .max_connections(5)
             .connect_with(options)
             .await?;
-        let table_exists = probe_schema_exists(&pool).await;
-        if let Ok(false) = table_exists {
-            sqlx::query(include_str!("schema.sql"))
-                .execute(&pool)
-                .await?;
-        }
+        sqlx::migrate!("./migrations").run(&pool).await?;
 
         Ok(Self { pool })
     }
@@ -302,14 +296,4 @@ pub struct CardStatsRow {
     pub difficulty: Option<f64>,
     pub stability: Option<f64>,
     pub last_reviewed_at: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-async fn probe_schema_exists(pool: &SqlitePool) -> Result<bool, sqlx::Error> {
-    let count: i64 = sqlx::query_scalar!(
-        r#"select count(*) as "count!: i64" from sqlite_master where type='table' AND name=?;"#,
-        "cards"
-    )
-    .fetch_one(pool)
-    .await?;
-    Ok(count > 0)
 }
