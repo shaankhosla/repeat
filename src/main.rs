@@ -1,18 +1,8 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-use self::crud::DB;
-
-mod card;
-mod check;
-mod create;
-mod crud;
-mod drill;
-mod editor;
-mod fsrs;
-mod stats;
-mod theme;
-pub(crate) mod utils;
+use repeat::crud::DB;
+use repeat::{check, create, drill};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

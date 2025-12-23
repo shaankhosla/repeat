@@ -1,8 +1,8 @@
 use anyhow::Result;
 use directories::ProjectDirs;
 use futures::TryStreamExt;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
 use std::collections::HashMap;
 use std::path::PathBuf;

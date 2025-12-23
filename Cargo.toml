@@ -15,3 +15,10 @@ blake3 = "1.8.2"
 chrono = "0.4.42"
 futures = "0.3.31"
 ignore = "0.4.25"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["async_tokio"] }
+
+[[bench]]
+name = "register_all_cards_bench"
+harness = false
