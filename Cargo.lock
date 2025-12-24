@@ -1595,7 +1595,7 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
 name = "repeat"
-version = "0.0.7"
+version = "0.0.10"
 dependencies = [
  "anyhow",
  "blake3",
