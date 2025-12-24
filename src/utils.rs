@@ -39,12 +39,14 @@ fn find_cloze_ranges(text: &str) -> Vec<(usize, usize)> {
 
     ranges
 }
-pub fn trim_line(line: &str) -> Option<String> {
-    let trimmed_line = line.trim().to_string();
-    if trimmed_line.is_empty() {
-        return None;
+
+pub fn trim_line(line: &str) -> Option<&str> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
     }
-    Some(trimmed_line)
 }
 
 fn parse_card_lines(contents: &str) -> (Option<String>, Option<String>, Option<String>) {
@@ -56,9 +58,9 @@ fn parse_card_lines(contents: &str) -> (Option<String>, Option<String>, Option<S
         None,
     }
 
-    let mut question_lines = Vec::new();
-    let mut answer_lines = Vec::new();
-    let mut cloze_lines = Vec::new();
+    let mut question_lines: Vec<&str> = Vec::new();
+    let mut answer_lines: Vec<&str> = Vec::new();
+    let mut cloze_lines: Vec<&str> = Vec::new();
 
     let mut section = Section::None;
 
@@ -67,9 +69,9 @@ fn parse_card_lines(contents: &str) -> (Option<String>, Option<String>, Option<S
 
         if trimmed.is_none() {
             match section {
-                Section::Question => question_lines.push(String::new()),
-                Section::Answer => answer_lines.push(String::new()),
-                Section::Cloze => cloze_lines.push(String::new()),
+                Section::Question => question_lines.push(""),
+                Section::Answer => answer_lines.push(""),
+                Section::Cloze => cloze_lines.push(""),
                 Section::None => {}
             }
             continue;
@@ -105,14 +107,14 @@ fn parse_card_lines(contents: &str) -> (Option<String>, Option<String>, Option<S
         }
 
         match section {
-            Section::Question => question_lines.push(line.to_owned()),
-            Section::Answer => answer_lines.push(line.to_owned()),
-            Section::Cloze => cloze_lines.push(line.to_owned()),
+            Section::Question => question_lines.push(line),
+            Section::Answer => answer_lines.push(line),
+            Section::Cloze => cloze_lines.push(line),
             Section::None => {}
         }
     }
 
-    fn join_nonempty(v: Vec<String>) -> Option<String> {
+    fn join_nonempty(v: Vec<&str>) -> Option<String> {
         if v.is_empty() {
             return None;
         }
