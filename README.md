@@ -7,9 +7,6 @@
   <a href="https://github.com/shaankhosla/repeat/releases">
     <img alt="Latest Release" src="https://img.shields.io/github/v/release/shaankhosla/repeat?display_name=tag&sort=semver&logo=github" />
   </a>
-  <a href="https://github.com/shaankhosla/repeat/stargazers">
-    <img alt="GitHub Stars" src="https://img.shields.io/github/stars/shaankhosla/repeat?logo=github" />
-  </a>
   <a href="LICENSE">
     <img alt="License" src="https://img.shields.io/github/license/shaankhosla/repeat?color=informational" />
   </a>
