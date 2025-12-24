@@ -208,10 +208,10 @@ fn current_style(stack: &[Style]) -> Style {
 }
 
 fn maybe_apply_prefix(current_line: &mut Vec<Span<'static>>, pending_prefix: &mut Option<String>) {
-    if current_line.is_empty() {
-        if let Some(prefix) = pending_prefix.take() {
-            current_line.push(Span::raw(prefix));
-        }
+    if current_line.is_empty()
+        && let Some(prefix) = pending_prefix.take()
+    {
+        current_line.push(Span::raw(prefix));
     }
 }
 

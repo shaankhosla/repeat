@@ -63,7 +63,15 @@ fn parse_card_lines(contents: &str) -> (Option<String>, Option<String>, Option<S
     for raw_line in contents.lines() {
         let line = match trim_line(raw_line) {
             Some(line) => line,
-            None => continue,
+            None => {
+                match section {
+                    Section::Question => question_lines.push(String::new()),
+                    Section::Answer => answer_lines.push(String::new()),
+                    Section::Cloze => cloze_lines.push(String::new()),
+                    Section::None => {}
+                }
+                continue;
+            }
         };
 
         if let Some(rest) = line.strip_prefix("Q:") {
@@ -101,7 +109,12 @@ fn parse_card_lines(contents: &str) -> (Option<String>, Option<String>, Option<S
         if v.is_empty() {
             None
         } else {
-            Some(v.join("\n"))
+            let concatted_string = v.join("\n");
+            if concatted_string.trim().is_empty() {
+                None
+            } else {
+                Some(concatted_string.trim_end().to_string())
+            }
         }
     };
 
@@ -299,7 +312,7 @@ mod tests {
         let (question, _, cloze) = parse_card_lines(contents);
         assert!(question.is_none());
         assert_eq!(
-            "Region: [`us-east-2`]\nLocation: [Ohio]\n---",
+            "Region: [`us-east-2`]\n\nLocation: [Ohio]\n\n---",
             cloze.unwrap()
         );
     }
