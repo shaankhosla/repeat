@@ -5,6 +5,7 @@ use std::time::Duration;
 use crate::card::{Card, CardContent};
 use crate::crud::DB;
 use crate::fsrs::ReviewStatus;
+use crate::markdown::render_markdown;
 use crate::theme::Theme;
 use crate::utils::register_all_cards;
 
@@ -152,7 +153,8 @@ async fn start_drill_session(db: &DB, cards: Vec<Card>) -> Result<()> {
                     ]);
 
                     let content = format_card_text(&card, state.show_answer);
-                    let card_widget = Paragraph::new(content)
+                    let markdown = render_markdown(&content);
+                    let card_widget = Paragraph::new(markdown)
                         .style(Theme::body())
                         .block(Theme::panel_with_line(header_line))
                         .wrap(Wrap { trim: false });
