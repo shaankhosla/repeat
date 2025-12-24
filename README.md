@@ -1,5 +1,20 @@
 # repeat
 
+<p align="center">
+  <a href="https://github.com/shaankhosla/repeat/actions/workflows/ci.yaml">
+    <img alt="CI Status" src="https://img.shields.io/github/actions/workflow/status/shaankhosla/repeat/ci.yaml?branch=main&label=CI&logo=github" />
+  </a>
+  <a href="https://github.com/shaankhosla/repeat/releases">
+    <img alt="Latest Release" src="https://img.shields.io/github/v/release/shaankhosla/repeat?display_name=tag&sort=semver&logo=github" />
+  </a>
+  <a href="https://github.com/shaankhosla/repeat/stargazers">
+    <img alt="GitHub Stars" src="https://img.shields.io/github/stars/shaankhosla/repeat?logo=github" />
+  </a>
+  <a href="LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/shaankhosla/repeat?color=informational" />
+  </a>
+</p>
+
 `repeat` is a local-first spaced repetition tool that keeps your decks in Markdown, hashes every card for identity, and schedules reviews with FSRS. Everything happens in the terminal: edit cards with a built-in TUI, drill them with a keyboard-only flow, and keep progress in a lightweight SQLite database.
 
 <p align="center">
