@@ -21,8 +21,8 @@
 
 ## Features
 
--  Cards live in `.md` files, so edit them using your favorite markdown editor, back them up with version control, and create them alongside regular notes..
-- Progress is tracked with hash of card content, so edits automatically reset their progress.
+- Cards live in `.md` files, so edit them using your favorite markdown editor, back them up with version control, and create them alongside regular notes.
+- Progress is tracked with a hash of the card content, so edits automatically reset their progress.
 - Free Spaced Repetition Scheduler (FSRS), a state-of-the-art algorithm targeting 90% recall, automatically schedules reviews for you.
 - Terminal UX: `repeat drill` renders cards with ratatui; `repeat create` launches an editor dedicated to card capture; `repeat check` displays progress at a glance.
 
@@ -87,7 +87,7 @@ flashcards/
       ...
 ```
 
-Cards live in ordinary Markdown. `repeat` scans for tagged sections and turns them into flashcards. This means that you can embed your active recall content alongside your regular notes using your favorite markdown editor, such as Obsidian. Also you can leverage all of the normal advantages of using markdown files, such as using version control to back them up.
+Cards live in ordinary Markdown. `repeat` scans for tagged sections and turns them into flashcards. This means that you can embed your active recall content alongside your regular notes using your favorite markdown editor, such as Obsidian. Also, you can leverage all of the normal advantages of using markdown files, such as using version control to back them up.
 
 - **Basic cards**
 
@@ -119,6 +119,12 @@ Start a terminal drilling session for one or more files/directories (default: cu
 - `--card-limit <N>`: cap the number of cards reviewed this session.
 - `--new-card-limit <N>`: cap the number of unseen cards introduced.
 
+Example: drill only the physics decks and stop after 20 cards.
+
+```
+repeat drill flashcards/science/physics/ --card-limit 20
+```
+
 ### `repeat create <path/to/deck.md>`
 
 Launch the capture editor for a specific Markdown file (it is created if missing). Shortcuts:
@@ -129,9 +135,21 @@ Launch the capture editor for a specific Markdown file (it is created if missing
 - Arrow keys/PageUp/PageDown: move the cursor; `Tab`, `Enter`, `Backspace`, and `Delete` work as expected.
 - `Esc` or `Ctrl+C`: exit the editor.
 
+Example: open (or create) the neuro deck for editing.
+
+```
+repeat create cards/neuro.md
+```
+
 ### `repeat check [PATH ...]`
 
 Re-index the referenced decks and emit counts for total, new, due, overdue, and upcoming cards so you can gauge the workload before drilling.
+
+Example: review stats for math class `flashcards/math/` before a study session.
+
+```
+repeat check flashcards/math/
+```
 
 
 ## Development
