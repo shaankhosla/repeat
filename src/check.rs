@@ -47,8 +47,8 @@ fn render_dashboard(stats: &CardStats) -> Result<()> {
     draw_result
 }
 
-fn dashboard_loop<B: ratatui::backend::Backend>(
-    terminal: &mut Terminal<B>,
+fn dashboard_loop(
+    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     stats: &CardStats,
 ) -> Result<()> {
     loop {
