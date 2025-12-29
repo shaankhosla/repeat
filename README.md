@@ -48,8 +48,12 @@ brew install repeat
 1. Create a deck in Markdown (`cards/neuro.md`):
 
    ```markdown
+   You can put your normal notes here, `repeat` will ignore them. Once a "Q:,A:,C:" block is detected, it will turn the rest into a card.
    Q: What does a synaptic vesicle store?
    A: Neurotransmitters awaiting release.
+
+   ---
+   Use a separator to mark the end of a card^, then feel free to go back to adding regular notes.
 
    C: Speech is [produced] in [Broca's] area.
    ```
