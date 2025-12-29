@@ -127,10 +127,10 @@ Start a terminal drilling session for one or more files/directories (default: cu
 - `--card-limit <N>`: cap the number of cards reviewed this session.
 - `--new-card-limit <N>`: cap the number of unseen cards introduced.
 
-Example: drill only the physics decks and stop after 20 cards.
+Example: drill all the physics decks and a single chemistry deck, and stop after 20 cards.
 
 ```
-repeat drill flashcards/science/physics/ --card-limit 20
+repeat drill flashcards/science/physics/ flashcards/science/chemistry.md --card-limit 20
 ```
 
 ### `repeat create <path/to/deck.md>`
