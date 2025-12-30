@@ -28,19 +28,29 @@
 
 ## Installation
 
-### Install script (macOS, Linux, Windows)
-
-Use the included `install.sh` to grab the latest GitHub release for your platform, verify its checksum, and place the binary in `/usr/local/bin` (you may be prompted for sudo):
-
-```
-curl -fsSL https://raw.githubusercontent.com/shaankhosla/repeat/main/install.sh | bash
-```
-
 ### Homebrew (macOS)
 
 ```
 brew tap shaankhosla/homebrew-tap
 brew install repeat
+```
+
+### Install script (Linux & macOS)
+
+```
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/shaankhosla/repeat/releases/latest/download/repeat-installer.sh | sh
+```
+
+### Windows (PowerShell)
+
+```
+irm https://github.com/shaankhosla/repeat/releases/latest/download/repeat-installer.ps1 | iex
+```
+
+### npm 
+
+```
+npm install repeat
 ```
 
 ## Quick Start
