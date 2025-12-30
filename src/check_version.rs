@@ -8,8 +8,7 @@ use std::{
 use anyhow::Result;
 use serde::Deserialize;
 
-// pub const ONE_DAY: Duration = Duration::from_secs(60 * 60 * 24);
-pub const ONE_DAY: Duration = Duration::from_secs(5);
+pub const ONE_DAY: Duration = Duration::from_secs(60 * 60 * 24);
 pub const ONE_WEEK: Duration = Duration::from_secs(60 * 60 * 24 * 7);
 
 #[derive(Deserialize, Debug)]
