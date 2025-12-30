@@ -3,6 +3,11 @@
 ### 🐛 Bug Fixes
 
 - Fix npm release
+## [0.0.18] - 2025-12-30
+
+### 🐛 Bug Fixes
+
+- Fix npm release
 ## [0.0.17] - 2025-12-30
 
 ### 💼 Other
