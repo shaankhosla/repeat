@@ -25,6 +25,7 @@
 - Progress is tracked with a hash of the card content, so edits automatically reset their progress.
 - Free Spaced Repetition Scheduler (FSRS), a state-of-the-art algorithm targeting 90% recall, automatically schedules reviews for you.
 - Terminal UX: `repeat drill` renders cards with ratatui; `repeat create` launches an editor dedicated to card capture; `repeat check` displays progress at a glance.
+- Import from Anki: convert `.apkg` exports into Markdown decks with `repeat import` so you can bring your existing collection along.
 
 ## Installation
 
@@ -169,6 +170,16 @@ Example: review stats for math class `flashcards/math/` before a study session.
 repeat check flashcards/math/
 ```
 
+### `repeat import <anki.apkg> <output-dir>`
+
+Convert an Anki `.apkg` export into Markdown decks. If files with the same names already exist in the export folder, they will be overwritten, so this command is safe to rerun if needed. This is a beta feature, so please report any issues on GitHub. FSRS history is not currently transferred over.
+
+Example: import `my_collection.apkg` into `cards/anki/` and start drilling right away.
+
+```
+repeat import ~/Downloads/my_collection.apkg cards/anki
+```
+
 
 ## Development
 
@@ -185,7 +196,7 @@ The repository also ships a `just precommit` recipe that runs the same checks.
 
 ## Roadmap
 
-- [ ] Import from Anki
+- [X] Import from Anki
 - [ ] Allow scrolling to other cards in a collection while creating a new card
 - [ ] Edit an existing card while keeping the progress intact
 - [ ] Allow for a fuzzy search of existing cards

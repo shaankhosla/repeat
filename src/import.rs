@@ -38,7 +38,7 @@ struct CardRecord {
 }
 
 pub async fn run(_db: &DB, anki_path: &Path, export_path: &Path) -> Result<()> {
-    validate_paths(anki_path, export_path)?;
+    validate_path(anki_path)?;
     let db_path = extract_collection_db(anki_path)?;
     let db_url = format!("sqlite://{}", db_path.path().display());
     let export_db = SqlitePool::connect(&db_url)
@@ -51,7 +51,7 @@ pub async fn run(_db: &DB, anki_path: &Path, export_path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn validate_paths(anki_path: &Path, export_path: &Path) -> Result<()> {
+fn validate_path(anki_path: &Path) -> Result<()> {
     if !anki_path.exists() {
         return Err(anyhow!("Anki path does not exist: {}", anki_path.display()));
     }
@@ -59,18 +59,6 @@ fn validate_paths(anki_path: &Path, export_path: &Path) -> Result<()> {
         return Err(anyhow!(
             "Anki path does not point to an apkg file: {}",
             anki_path.display()
-        ));
-    }
-    if !export_path.exists() {
-        return Err(anyhow!(
-            "Export path does not exist: {}",
-            export_path.display()
-        ));
-    }
-    if !export_path.is_dir() {
-        return Err(anyhow!(
-            "Export path is not a directory: {}",
-            export_path.display()
         ));
     }
     Ok(())
