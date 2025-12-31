@@ -81,7 +81,7 @@ fn extract_collection_db(apkg: &Path) -> Result<NamedTempFile> {
     let mut zip = ZipArchive::new(file).context("failed to read apkg as zip archive")?;
 
     let mut entry = zip
-        .by_name("collection.anki2")
+        .by_name("collection.anki21")
         .context("apkg does not contain collection.anki2")?;
 
     let mut temp =

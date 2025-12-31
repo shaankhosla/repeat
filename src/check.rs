@@ -1,11 +1,17 @@
 use crate::{
+    check_version::{check_version, prompt_for_new_version},
     crud::DB,
     stats::{CardLifeCycle, CardStats, Histogram},
     theme::Theme,
     utils::register_all_cards,
 };
 
-use std::{cmp, io, path::PathBuf, time::Duration};
+use std::{
+    cmp,
+    io::{self},
+    path::PathBuf,
+    time::Duration,
+};
 
 use anyhow::Result;
 use chrono::NaiveDate;
@@ -23,9 +29,15 @@ use ratatui::{
 };
 
 pub async fn run(db: &DB, paths: Vec<PathBuf>) -> Result<usize> {
+    let version_check = tokio::spawn(check_version(db.clone()));
+
     let card_hashes = register_all_cards(db, paths).await?;
     let count = card_hashes.len();
     let stats = db.collection_stats(&card_hashes).await?;
+    if let Some(notification) = version_check.await.ok().flatten() {
+        prompt_for_new_version(db, &notification).await;
+    }
+
     render_dashboard(&stats)?;
     Ok(count)
 }

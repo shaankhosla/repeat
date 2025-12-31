@@ -1,6 +1,6 @@
 [package]
 name = "repeat"
-version = "0.0.14"
+version = "0.0.21"
 edition = "2024"
 repository = "https://github.com/shaankhosla/repeat"
 description="Spaced repetition, in your terminal"
@@ -10,7 +10,7 @@ authors = ["shaankhosla"]
 [dependencies]
 clap = { version = "4.5.53", features = ["derive"] }
 ratatui = "0.30.0"
-crossterm = "0.28"
+crossterm = "0.29"
 anyhow = "1.0.100"
 sqlx = { version = "0.8", features = [ "runtime-tokio-rustls" , "sqlite", "chrono", "macros", "migrate"] }
 directories = "6.0.0"
@@ -26,9 +26,11 @@ regex = "1.11"
 zip = "0.6"
 tempfile = "3"
 serde_json = "1.0.140"
+serde = { version = "1.0", features = ["derive"] }
+reqwest = { version = "0.11", features = ["json"] }
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["async_tokio"] }
+criterion = { version = "0.8.1", features = ["async_tokio" ] }
 
 [[bench]]
 name = "register_all_cards_bench"

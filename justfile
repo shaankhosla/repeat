@@ -21,3 +21,7 @@ drill:
 
 import:
     cargo run -- import "/Users/shaankhosla/Downloads/All Decks.apkg" "/Users/shaankhosla/Desktop/sample_repeat_cards/"
+
+release:
+    precommit
+    ./scripts/release.sh

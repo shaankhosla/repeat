@@ -50,7 +50,7 @@ irm https://github.com/shaankhosla/repeat/releases/latest/download/repeat-instal
 ### npm 
 
 ```
-npm install repeat
+npm install @shaankhosla/repeat
 ```
 
 ## Quick Start
