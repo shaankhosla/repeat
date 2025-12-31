@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use repeat::crud::DB;
 use repeat::utils::register_all_cards;
+use std::hint::black_box;
 use tokio::runtime::Runtime;
 
 fn bench_register_all_cards(c: &mut Criterion) {
