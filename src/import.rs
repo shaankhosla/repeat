@@ -320,3 +320,43 @@ fn convert_cloze(text: &str) -> String {
         })
         .into_owned()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clean_field_strips_markup_and_decodes_entities() {
+        let input = "<div>Hello &amp; <strong>world</strong></div>";
+        assert_eq!(clean_field(input), "Hello & world");
+    }
+
+    #[test]
+    fn basic_entry_swaps_fields_on_reverse_cards() {
+        let fields = vec!["Front".into(), "Back".into()];
+        let forward = basic_entry(&fields, 0).unwrap();
+        assert!(forward.contains("Q: Front"));
+        assert!(forward.contains("A: Back"));
+
+        let reverse = basic_entry(&fields, 1).unwrap();
+        assert!(reverse.contains("Q: Back"));
+        assert!(reverse.contains("A: Front"));
+
+        assert!(basic_entry(&["Only".into()], 0).is_none());
+    }
+
+    #[test]
+    fn convert_cloze_rewrites_all_cloze_blocks() {
+        let text = "Capital {{c1::Tokyo}} and {{c2::Kyoto::hint}}";
+        assert_eq!(convert_cloze(text), "Capital [Tokyo] and [Kyoto]");
+    }
+
+    #[test]
+    fn deck_components_sanitizes_segments_and_falls_back() {
+        assert_eq!(
+            deck_components("Data Science::/ETL?:"),
+            vec!["Data Science".to_string(), "-ETL--".to_string()]
+        );
+        assert_eq!(deck_components(""), vec!["Deck".to_string()]);
+    }
+}

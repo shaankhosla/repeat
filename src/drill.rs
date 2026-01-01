@@ -322,3 +322,80 @@ fn mask_cloze_text(text: &str, start: usize, end: usize) -> String {
 
     format!("{}[{}]{}", &text[..start], placeholder, &text[after..])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn basic_card(question: &str, answer: &str) -> Card {
+        Card {
+            file_path: PathBuf::from("test.md"),
+            file_card_range: (0, 1),
+            content: CardContent::Basic {
+                question: question.into(),
+                answer: answer.into(),
+            },
+            card_hash: "hash".into(),
+        }
+    }
+
+    fn cloze_card(text: &str) -> Card {
+        let start = text.find('[').unwrap();
+        let end = text[start..].find(']').unwrap() + start;
+        Card {
+            file_path: PathBuf::from("test.md"),
+            file_card_range: (0, 1),
+            content: CardContent::Cloze {
+                text: text.into(),
+                start,
+                end,
+            },
+            card_hash: "hash".into(),
+        }
+    }
+
+    #[test]
+    fn basic_card_hides_answer_until_revealed() {
+        let card = basic_card("What?", "Answer");
+
+        let hidden = format_card_text(&card, false);
+        assert!(!hidden.contains("Answer"));
+
+        let shown = format_card_text(&card, true);
+        assert!(shown.contains("Answer"));
+    }
+
+    #[test]
+    fn mask_cloze_text_handles_unicode_and_bad_ranges() {
+        let text = "Capital of 日本 is [東京]";
+        let start = text.find('[').unwrap();
+        let end = text[start..].find(']').unwrap() + start;
+        let masked = mask_cloze_text(text, start, end);
+        let placeholder = extract_placeholder(&masked);
+        assert!(placeholder.chars().all(|c| c == '_'));
+        assert!(placeholder.chars().count() >= 3);
+
+        let untouched = mask_cloze_text(text, end, start);
+        assert_eq!(untouched, text);
+    }
+
+    #[test]
+    fn cloze_card_masks_until_answer_shown() {
+        let card = cloze_card("Value [東京]");
+
+        let masked = format_card_text(&card, false);
+        let placeholder = extract_placeholder(&masked);
+        assert!(placeholder.chars().all(|c| c == '_'));
+        assert!(placeholder.chars().count() >= 3);
+
+        let revealed = format_card_text(&card, true);
+        assert!(revealed.contains("[東京]"));
+    }
+
+    fn extract_placeholder(text: &str) -> String {
+        let start = text.find('[').unwrap();
+        let end = text[start..].find(']').unwrap() + start;
+        text[start + 1..end].to_string()
+    }
+}

@@ -119,3 +119,87 @@ impl CardStats {
         self.retrievability_histogram.update(retrievabiliity);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::card::{Card, CardContent};
+    use chrono::{Duration, Utc};
+
+    fn sample_card(path: &str) -> Card {
+        Card {
+            file_path: PathBuf::from(path),
+            file_card_range: (0, 1),
+            content: CardContent::Basic {
+                question: "Q".into(),
+                answer: "A".into(),
+            },
+            card_hash: "hash".into(),
+        }
+    }
+
+    fn default_row() -> CardStatsRow {
+        CardStatsRow {
+            card_hash: "hash".into(),
+            review_count: 0,
+            due_date: None,
+            interval_raw: None,
+            difficulty: None,
+            stability: None,
+            last_reviewed_at: None,
+        }
+    }
+
+    #[test]
+    fn counts_new_card_as_due_and_new() {
+        let mut stats = CardStats::default();
+        let card = sample_card("deck/file.md");
+        let mut row = default_row();
+        row.difficulty = Some(5.0);
+
+        stats.update(&card, &row);
+
+        assert_eq!(*stats.card_lifecycles.get(&CardLifeCycle::New).unwrap(), 1);
+        assert_eq!(stats.due_cards, 1);
+        assert_eq!(stats.upcoming_month, 1);
+        assert_eq!(stats.file_paths.get(&card.file_path), Some(&1));
+        assert_eq!(stats.difficulty_histogram.bins[2], 1);
+    }
+
+    #[test]
+    fn marks_mature_future_due_cards_correctly() {
+        let mut stats = CardStats::default();
+        let card = sample_card("deck/file.md");
+        let mut row = default_row();
+        row.review_count = 5;
+        row.interval_raw = Some(30.0);
+        row.due_date = Some(Utc::now() + Duration::days(3));
+
+        stats.update(&card, &row);
+
+        assert_eq!(
+            *stats.card_lifecycles.get(&CardLifeCycle::Mature).unwrap(),
+            1
+        );
+        assert_eq!(stats.due_cards, 0);
+        assert_eq!(stats.upcoming_month, 1);
+        assert_eq!(stats.upcoming_week.values().sum::<usize>(), 1);
+    }
+
+    #[test]
+    fn updates_retrievability_histogram_when_reviewed() {
+        let mut stats = CardStats::default();
+        let card = sample_card("deck/file.md");
+        let mut row = default_row();
+        row.review_count = 2;
+        row.interval_raw = Some(5.0);
+        row.stability = Some(5.0);
+        row.last_reviewed_at = Some(Utc::now() - Duration::days(4));
+
+        stats.update(&card, &row);
+
+        let recall = calculate_recall(4.0, 5.0);
+        let idx = ((recall.clamp(0.0, 1.0) * 5.0) as usize).min(4);
+        assert_eq!(stats.retrievability_histogram.bins[idx], 1);
+    }
+}
