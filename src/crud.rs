@@ -285,14 +285,18 @@ impl DB {
         // then new cards
         let mut rows = sqlx::query!(
             r#"
-        SELECT card_hash, review_count as "review_count!: i64"
+        SELECT
+            card_hash,
+            review_stage as "review_stage!: ReviewStage"
         FROM cards
-        WHERE due_date <= ? OR due_date IS NULL
+        WHERE due_date <= ? OR review_stage = ?
         ORDER BY
-            CASE WHEN due_date IS NULL THEN 1 ELSE 0 END,
+            CASE WHEN review_stage = ? THEN 1 ELSE 0 END,
             due_date ASC
         "#,
-            now
+            now,
+            ReviewStage::New,
+            ReviewStage::New,
         )
         .fetch(&self.pool);
 
@@ -304,7 +308,7 @@ impl DB {
                 continue;
             }
 
-            let is_new = row.review_count == 0;
+            let is_new = row.review_stage == ReviewStage::New;
 
             if is_new
                 && let Some(limit) = new_card_limit
