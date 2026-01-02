@@ -211,10 +211,15 @@ pub fn fsrs_schedule(
     reviewed_at: chrono::DateTime<chrono::Utc>,
 ) -> FsrsStats {
     let (stability, difficulty, prev_review_count): (f64, f64, usize) = match perf {
-        Performance::New | Performance::LearningA(_) | Performance::LearningB(_) => (
+        Performance::New => (
             initial_stability(review_status),
             initial_difficulty(review_status),
             0,
+        ),
+        Performance::LearningA(scheduling_stats) | Performance::LearningB(scheduling_stats) => (
+            initial_stability(review_status),
+            initial_difficulty(review_status),
+            scheduling_stats.review_count,
         ),
         Performance::Review(rp) => {
             let elapsed_days = reviewed_at
