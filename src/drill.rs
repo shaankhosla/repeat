@@ -113,7 +113,7 @@ impl<'a> DrillState<'a> {
             .expect("card should exist when handling review");
         let show_again_duration = self
             .db
-            .update_card_performance(&current_card, action)
+            .update_card_performance(&current_card, action, None)
             .await?;
         if action == ReviewStatus::Fail || show_again_duration < 20.0 / (60.0 * 24.0) {
             self.redo_cards.push(current_card.clone());

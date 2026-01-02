@@ -211,8 +211,8 @@ mod tests {
         assert_eq!(last_reviewed_at, reviewed_at);
         assert!(approx_eq(stability, 3.17));
         assert!(approx_eq(difficulty, 5.28));
-        assert!(approx_eq(interval_raw, 3.17));
-        assert_eq!(interval_days, 3);
+        assert!(approx_eq(interval_raw, 0.0006944444444444445));
+        assert_eq!(interval_days, 1);
         assert_eq!(review_count, 1);
     }
 
@@ -248,8 +248,8 @@ mod tests {
         assert_eq!(last_reviewed_at, reviewed_at);
         assert!(approx_eq(stability, 10.739));
         assert!(approx_eq(difficulty, 5.280));
-        assert!(approx_eq(interval_raw, 10.739));
-        assert_eq!(interval_days, 11);
+        assert!(approx_eq(interval_raw, 0.006944444444444444));
+        assert_eq!(interval_days, 1);
         assert_eq!(review_count, 2);
     }
 
@@ -273,7 +273,7 @@ mod tests {
         assert_eq!(performance.review_count, 101);
         assert_eq!(performance.interval_days, 256);
         assert!(approx_eq(performance.difficulty, 5.28));
-        assert!(approx_eq(performance.stability, 26315.03905930558));
+        assert!(approx_eq(performance.stability, 25827.806046079717));
 
         for _ in 0..100 {
             let interval_raw = performance.interval_raw;
