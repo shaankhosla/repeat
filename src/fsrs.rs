@@ -11,6 +11,20 @@ const TARGET_RECALL: f64 = 0.9;
 const MIN_INTERVAL: f64 = 1.0;
 const MAX_INTERVAL: f64 = 256.0;
 
+fn early_interval_cap(review_count: usize, review_status: ReviewStatus) -> Option<Duration> {
+    match review_count {
+        0 => Some(Duration::minutes(1)),
+        1 => match review_status {
+            ReviewStatus::Pass => Some(Duration::minutes(10)),
+            ReviewStatus::Fail => Some(Duration::minutes(1)),
+        },
+        2 => match review_status {
+            ReviewStatus::Pass => Some(Duration::days(1)),
+            ReviewStatus::Fail => Some(Duration::minutes(10)),
+        },
+        _ => None,
+    }
+}
 pub fn calculate_recall(interval: f64, stability: f64) -> f64 {
     (1.0 + F * (interval / stability)).powf(C)
 }
@@ -145,8 +159,16 @@ pub fn update_performance(
     let interval_raw: f64 = calulate_interval(TARGET_RECALL, stability);
     let interval_rounded: f64 = interval_raw.round();
     let interval_clamped: f64 = interval_rounded.clamp(MIN_INTERVAL, MAX_INTERVAL);
-    let interval_days: usize = interval_clamped as usize;
-    let interval_duration: Duration = Duration::days(interval_clamped as i64);
+    let fsrs_duration = Duration::days(interval_clamped as i64);
+
+    let interval_duration = early_interval_cap(review_count, review_status)
+        .map(|cap| fsrs_duration.min(cap))
+        .unwrap_or(fsrs_duration);
+    let interval_effective_days = interval_duration.num_seconds() as f64 / 86_400.0;
+
+    let interval_raw = interval_effective_days;
+
+    let interval_days: usize = interval_duration.num_days().max(1) as usize;
     let due_date: chrono::DateTime<chrono::Utc> = reviewed_at + interval_duration;
     ReviewedPerformance {
         last_reviewed_at: reviewed_at,
