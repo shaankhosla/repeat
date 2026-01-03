@@ -5,6 +5,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use crate::card::{Card, CardContent};
+use crate::llm::generate_cloze;
 use ignore::WalkState;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -172,10 +173,22 @@ pub fn content_to_card(
             content,
             card_hash,
         })
-    } else if let Some(c) = cloze {
-        let cloze_idxs = find_cloze_ranges(&c);
+    } else if let Some(mut c) = cloze {
+        let mut cloze_idxs = find_cloze_ranges(&c);
         if cloze_idxs.is_empty() {
-            return Err(anyhow!("Card is a cloze but can't find cloze text in []"));
+            for suggestion in generate_cloze(&c) {
+                let ranges = find_cloze_ranges(&suggestion);
+                if !ranges.is_empty() {
+                    c = suggestion;
+                    cloze_idxs = ranges;
+                    break;
+                }
+            }
+        }
+        if cloze_idxs.is_empty() {
+            return Err(anyhow!(
+                "Card is a cloze but can't find cloze text in [] and LLM generation failed"
+            ));
         }
         let cloze_idx_start = cloze_idxs[0].0;
         let cloze_idx_end = cloze_idxs[0].1;

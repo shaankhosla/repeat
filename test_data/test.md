@@ -35,3 +35,4 @@ A: A running instance of an image.
 
 ---
 
+C: use AI on this one
