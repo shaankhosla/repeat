@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use anyhow::{Result, anyhow};
+
 #[derive(Clone, Debug)]
 pub struct Card {
     pub file_path: PathBuf,
@@ -17,9 +19,30 @@ pub enum CardContent {
     },
     Cloze {
         text: String,
-        start: usize,
-        end: usize,
+        cloze_range: Option<ClozeRange>,
     },
+}
+
+#[derive(Clone, Debug)]
+pub struct ClozeRange {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl ClozeRange {
+    pub fn new(start: usize, end: usize) -> Result<Self> {
+        if start >= end {
+            return Err(anyhow!("Invalid cloze range: start must be < end"));
+        }
+
+        if end - start <= 1 {
+            return Err(anyhow!(
+                "Invalid cloze range: range must be at least length 2"
+            ));
+        }
+
+        Ok(Self { start, end })
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
