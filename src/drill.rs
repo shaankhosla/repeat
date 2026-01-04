@@ -193,7 +193,7 @@ async fn start_drill_session(db: &DB, cards: Vec<Card>) -> Result<()> {
 
                     let content = format_card_text(&card, state.show_answer);
                     let markdown = render_markdown(&content);
-                    state.current_medias = extract_media(&content);
+                    state.current_medias = extract_media(&content, card.file_path.parent());
 
                     let card_widget = Paragraph::new(markdown)
                         .style(Theme::body())

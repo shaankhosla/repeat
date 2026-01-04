@@ -48,7 +48,16 @@ fn media_kind_from_path(path: &Path) -> Option<MediaKind> {
     }
 }
 
-pub fn extract_media(markdown: &str) -> Vec<Media> {
+fn resolve_media_path(path: PathBuf, base_dir: Option<&Path>) -> PathBuf {
+    if path.is_relative()
+        && let Some(dir) = base_dir
+    {
+        return dir.join(path);
+    }
+    path
+}
+
+pub fn extract_media(markdown: &str, base_dir: Option<&Path>) -> Vec<Media> {
     let parser = Parser::new(markdown);
 
     let mut media = Vec::new();
@@ -61,9 +70,9 @@ pub fn extract_media(markdown: &str) -> Vec<Media> {
         match event {
             // [label](path)
             Event::Start(Tag::Link { dest_url, .. }) => {
-                let path = PathBuf::from(dest_url.as_ref());
-                if let Some(kind) = media_kind_from_path(&path) {
-                    current_path = Some(path);
+                let resolved_path = resolve_media_path(PathBuf::from(dest_url.as_ref()), base_dir);
+                if let Some(kind) = media_kind_from_path(&resolved_path) {
+                    current_path = Some(resolved_path);
                     current_kind = Some(kind);
                     current_label.clear();
                 }
@@ -71,11 +80,11 @@ pub fn extract_media(markdown: &str) -> Vec<Media> {
 
             // ![alt](path)
             Event::Start(Tag::Image { dest_url, .. }) => {
-                let path = PathBuf::from(dest_url.as_ref());
-                if let Some(kind) = media_kind_from_path(&path) {
+                let resolved_path = resolve_media_path(PathBuf::from(dest_url.as_ref()), base_dir);
+                if let Some(kind) = media_kind_from_path(&resolved_path) {
                     media.push(Media {
                         label: "image".to_string(),
-                        path,
+                        path: resolved_path,
                         kind,
                     });
                 }
@@ -114,7 +123,7 @@ pub fn extract_media(markdown: &str) -> Vec<Media> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use crate::media::{Media, MediaKind};
 
@@ -136,7 +145,7 @@ Watch the clip:
 
 This is a normal link and should be ignored:
 [example](https://example.com)";
-        let medias = extract_media(contents);
+        let medias = extract_media(contents, None);
         let expected = vec![
             Media {
                 label: "image".to_string(),
@@ -155,6 +164,25 @@ This is a normal link and should be ignored:
             },
         ];
 
+        assert_eq!(medias, expected);
+    }
+
+    #[test]
+    fn resolves_relative_paths_with_base_dir() {
+        let contents = "![dog](media/dog.jpg)\n[audio](../audio/bark.mp3)";
+        let medias = extract_media(contents, Some(Path::new("notes/cards")));
+        let expected = vec![
+            Media {
+                label: "image".to_string(),
+                path: PathBuf::from("notes/cards/media/dog.jpg"),
+                kind: MediaKind::Image,
+            },
+            Media {
+                label: "audio".to_string(),
+                path: PathBuf::from("notes/cards/../audio/bark.mp3"),
+                kind: MediaKind::Audio,
+            },
+        ];
         assert_eq!(medias, expected);
     }
 }
