@@ -8,6 +8,7 @@ use std::{
 use anyhow::Result;
 use serde::Deserialize;
 
+const TIMEOUT: u64 = 900;
 pub const ONE_DAY: Duration = Duration::from_secs(60 * 60 * 24);
 pub const ONE_WEEK: Duration = Duration::from_secs(60 * 60 * 24 * 7);
 
@@ -45,6 +46,16 @@ pub async fn check_version(db: DB) -> Option<VersionNotification> {
 
     let current_version = env!("CARGO_PKG_VERSION");
     let latest_release = get_latest().await.ok()?;
+
+    #[cfg(debug_assertions)]
+    {
+        let elapsed = chrono::Utc::now()
+            .signed_duration_since(now)
+            .num_milliseconds();
+
+        dbg!(elapsed, "ms");
+    }
+
     db.update_last_version_check_at().await.ok();
 
     if normalize_version(&latest_release.tag_name) == normalize_version(current_version) {
@@ -65,7 +76,7 @@ async fn get_latest() -> Result<Release> {
     let release: Release = client
         .get("https://api.github.com/repos/shaankhosla/repeat/releases/latest")
         .header("User-Agent", USER_AGENT)
-        .timeout(Duration::from_millis(700))
+        .timeout(Duration::from_millis(TIMEOUT))
         .send()
         .await?
         .error_for_status()?
@@ -92,7 +103,7 @@ pub async fn prompt_for_new_version(db: &DB, notification: &VersionNotification)
 
     println!("Check {blue}https://github.com/shaankhosla/repeat/releases{reset} for more details");
 
-    println!("{dim}Press any key to continue (I'll remind you again in a few days){reset}");
+    println!("{dim}Press any key to dismiss (I'll remind you again in a few days){reset}");
     let _ = io::stdout().flush();
 
     let mut input = String::new();
