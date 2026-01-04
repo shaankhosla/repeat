@@ -1,6 +1,7 @@
+use std::env;
 use std::io::{self, Write};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 use async_openai::types::{
     ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
     CreateChatCompletionRequestArgs,
@@ -10,7 +11,7 @@ use async_openai::{Client, config::OpenAIConfig};
 const SERVICE: &str = "com.repeat.cl";
 const USERNAME: &str = "openai";
 
-use keyring::Entry;
+use keyring::{Entry, Error as KeyringError};
 
 const CLOZE_MODEL: &str = "gpt-5-nano";
 const SYSTEM_PROMPT: &str = r#"
@@ -19,22 +20,40 @@ A Cloze deletion is denoted by square brackets: [hidden text].
 Only add one Cloze deletion.
 "#;
 
-const USER_PROMPT_TEMPLATE: &str = r#"
+const USER_PROMPT_HEADER: &str = r#"
 Turn the following text into a Cloze card by inserting [] around the hidden portion.
 Return the exact same text, only with brackets added.
 
 Text:
-{}
 "#;
 
+pub const API_KEY_ENV: &str = "REPEAT_OPENAI_API_KEY";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApiKeySource {
+    Environment,
+    Keyring,
+}
+
+impl ApiKeySource {
+    pub fn description(&self) -> &'static str {
+        match self {
+            ApiKeySource::Environment => "environment variable",
+            ApiKeySource::Keyring => "local keyring",
+        }
+    }
+}
+
 pub async fn ensure_client(user_prompt: &str) -> Result<Client<OpenAIConfig>> {
-    let llm_key = load_api_key();
-    let key = match llm_key {
-        Ok(api_key) => api_key,
-        Err(_) => {
-            let api_key = prompt_user_for_key(user_prompt)?;
+    let key = match resolve_configured_api_key()? {
+        Some((api_key, _source)) => api_key,
+        None => {
+            let api_key = prompt_for_api_key(user_prompt)?;
             if api_key.is_empty() {
-                return Err(anyhow!("No API key provided"));
+                return Err(anyhow!(
+                    "No API key provided. Set {} or run `repeat llm key --set <KEY>`.",
+                    API_KEY_ENV
+                ));
             }
             store_api_key(&api_key)?;
             api_key
@@ -43,6 +62,27 @@ pub async fn ensure_client(user_prompt: &str) -> Result<Client<OpenAIConfig>> {
     let client = initialize_client(&key)?;
     healthcheck_client(&client).await?;
     Ok(client)
+}
+
+pub async fn test_configured_api_key() -> Result<ApiKeySource> {
+    let (key, source) = resolve_configured_api_key()?.ok_or_else(|| {
+        anyhow!(
+            "No API key configured. Set {} or run `repeat llm key --set <KEY>`.",
+            API_KEY_ENV
+        )
+    })?;
+    let client = initialize_client(&key)?;
+    healthcheck_client(&client).await?;
+    Ok(source)
+}
+
+pub fn clear_api_key() -> Result<bool> {
+    let entry = Entry::new(SERVICE, USERNAME)?;
+    match entry.delete_password() {
+        Ok(()) => Ok(true),
+        Err(KeyringError::NoEntry) => Ok(false),
+        Err(err) => Err(anyhow!(err)),
+    }
 }
 
 fn initialize_client(api_key: &str) -> Result<Client<OpenAIConfig>> {
@@ -57,14 +97,14 @@ async fn healthcheck_client(client: &Client<OpenAIConfig>) -> Result<()> {
         .models()
         .list()
         .await
-        .context("Failed to list models")?;
+        .context("Failed to call LLM provider")?;
     Ok(())
 }
 
 pub async fn request_cloze(client: &Client<OpenAIConfig>, text: &str) -> Result<String> {
     let request = CreateChatCompletionRequestArgs::default()
         .model(CLOZE_MODEL)
-        .max_tokens(200)
+        .max_tokens(200_u32)
         .temperature(0.2)
         .messages([
             ChatCompletionRequestSystemMessageArgs::default()
@@ -72,7 +112,7 @@ pub async fn request_cloze(client: &Client<OpenAIConfig>, text: &str) -> Result<
                 .build()?
                 .into(),
             ChatCompletionRequestUserMessageArgs::default()
-                .content(format!(USER_PROMPT_TEMPLATE, text))
+                .content(build_user_prompt(text))
                 .build()?
                 .into(),
         ])
@@ -89,7 +129,7 @@ pub async fn request_cloze(client: &Client<OpenAIConfig>, text: &str) -> Result<
     Ok(output)
 }
 
-fn prompt_user_for_key(prompt: &str) -> Result<String> {
+pub fn prompt_for_api_key(prompt: &str) -> Result<String> {
     let dim = "\x1b[2m";
     let reset = "\x1b[0m";
     let green = "\x1b[32m";
@@ -113,13 +153,44 @@ fn prompt_user_for_key(prompt: &str) -> Result<String> {
     Ok(trimmed.to_string())
 }
 
-fn store_api_key(api_key: &str) -> Result<()> {
+pub fn store_api_key(api_key: &str) -> Result<()> {
+    let trimmed = api_key.trim();
+    if trimmed.is_empty() {
+        bail!("Cannot store an empty API key");
+    }
     let entry = Entry::new(SERVICE, USERNAME)?;
-    entry.set_password(api_key)?;
+    entry.set_password(trimmed)?;
     Ok(())
 }
 
-fn load_api_key() -> Result<String> {
+fn resolve_configured_api_key() -> Result<Option<(String, ApiKeySource)>> {
+    if let Some(env_key) = load_env_api_key() {
+        return Ok(Some((env_key, ApiKeySource::Environment)));
+    }
+
+    if let Some(stored) = load_stored_api_key()? {
+        return Ok(Some((stored, ApiKeySource::Keyring)));
+    }
+
+    Ok(None)
+}
+
+fn load_env_api_key() -> Option<String> {
+    match env::var(API_KEY_ENV) {
+        Ok(value) if !value.trim().is_empty() => Some(value),
+        _ => None,
+    }
+}
+
+fn load_stored_api_key() -> Result<Option<String>> {
     let entry = Entry::new(SERVICE, USERNAME)?;
-    Ok(entry.get_password()?)
+    match entry.get_password() {
+        Ok(password) => Ok(Some(password)),
+        Err(KeyringError::NoEntry) => Ok(None),
+        Err(err) => Err(anyhow!(err)),
+    }
+}
+
+fn build_user_prompt(text: &str) -> String {
+    format!("{header}{text}\n", header = USER_PROMPT_HEADER, text = text)
 }

@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand, ValueHint};
 
 use repeat::crud::DB;
-use repeat::{check, create, drill, import};
+use repeat::{check, create, drill, import, llm};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -66,6 +66,18 @@ enum Command {
         #[arg(value_name = "PATH", value_hint = ValueHint::AnyPath)]
         export_path: PathBuf,
     },
+    /// Manage LLM helper settings
+    Llm {
+        /// Store a new API key in the local keyring
+        #[arg(long, value_name = "KEY", conflicts_with = "clear")]
+        set: Option<String>,
+        /// Remove the stored API key from the keyring
+        #[arg(long, conflicts_with = "test")]
+        clear: bool,
+        /// Verify the configured API key by calling the OpenAI API
+        #[arg(long, conflicts_with = "clear")]
+        test: bool,
+    },
 }
 
 #[tokio::main]
@@ -98,6 +110,39 @@ async fn run_cli() -> Result<()> {
             anki_path,
             export_path,
         } => import::run(&db, &anki_path, &export_path).await.with_context(|| "Importing from Anki is a work in progress, please report issues on https://github.com/shaankhosla/repeat")?,
+        Command::Llm { set, clear, test } => handle_llm_command(set, clear, test).await?,
+    }
+
+    Ok(())
+}
+
+async fn handle_llm_command(set: Option<String>, clear: bool, test: bool) -> Result<()> {
+    let mut action_taken = false;
+
+    if let Some(key) = set {
+        llm::store_api_key(&key)?;
+        println!("Stored OpenAI API key in the local keyring.");
+        action_taken = true;
+    }
+
+    if clear {
+        let removed = llm::clear_api_key()?;
+        if removed {
+            println!("Removed the stored OpenAI API key.");
+        } else {
+            println!("No OpenAI API key found in the keyring.");
+        }
+        action_taken = true;
+    }
+
+    if test {
+        let source = llm::test_configured_api_key().await?;
+        println!("OpenAI API key from the {} is valid.", source.description());
+        action_taken = true;
+    }
+
+    if !action_taken {
+        bail!("No action provided. Use --set, --clear, or --test.");
     }
 
     Ok(())

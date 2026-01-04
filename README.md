@@ -68,9 +68,19 @@ npm install @shaankhosla/repeat
 
    ---
    Use a separator to mark the end of a card^
-   Then feel free to go back to adding regular notes.
+   Then feel free to go back to adding regular notes. 
 
    C: Speech is [produced] in [Broca's] area.
+
+   You can write Cloze's like this^, but you you can also leave it without
+   brackets to use an LLM generated cloze. For example,
+
+   C: Speech is produced in Broca's area.
+
+   ---
+   The above line will be sent to an LLM, and it will decide the
+   best word(s) to Cloze for you.
+
    ```
 
 Alternatively, use the built-in editor with `repeat create cards/neuro.md`.
@@ -125,9 +135,10 @@ Cards live in ordinary Markdown. `repeat` scans for tagged sections and turns th
 ### Parsing Logic
 
 - Cards are detected by the presence of a `Q:/A:` or `C:` block. The end of the card is indicated by a horizontal rule (`---`), or the start of another card.
+- If a `C:` block is present, but the flashcard doesn't contain a Cloze bracket `[...]`, an LLM can be used to dynamically generate one. 
+- Multi-line content is supported.
 - Cards are hashed with Blake3; modifying the text produces a new hash and resets that card's performance history.
 - Metadata lives in `cards.db` under your OS data directory (for example, `~/Library/Application Support/repeat/cards.db` on macOS). Delete the file to discard history; the Markdown decks remain untouched.
-- Multi-line content is supported.
 
 ## Commands
 
@@ -179,6 +190,16 @@ Example: import `my_collection.apkg` into `cards/anki/` and start drilling right
 ```
 repeat import ~/Downloads/my_collection.apkg cards/anki
 ```
+
+### `repeat llm`
+
+`repeat` can call an OpenAI model to dynamically produce Cloze brackets around a Cloze flashcard. Provide an API key via one of the following:
+
+- Set the `REPEAT_OPENAI_API_KEY` environment variable for fully non-interactive runs (CI, scripts, etc.).
+- Store a key in your system keyring with `repeat llm key --set sk-your-key`. Remove it with `repeat llm key --clear`.
+- Validate the currently configured key with `repeat llm key --test`, which performs a lightweight API call.
+
+The environment variable, if present, always takes precedence over a stored key.
 
 
 ## Development
