@@ -141,7 +141,7 @@ pub fn prompt_for_api_key(prompt: &str) -> Result<String> {
         reset = reset
     );
     println!(
-        "{dim}Leave the field blank to skip—repeat will continue without sending anything.{reset}",
+        "{dim}This feature is optional, leave the field blank to skip.{reset}",
         dim = dim,
         reset = reset
     );
