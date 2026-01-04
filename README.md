@@ -4,6 +4,9 @@
   <a href="https://github.com/shaankhosla/repeat/actions/workflows/ci.yaml">
     <img alt="CI Status" src="https://img.shields.io/github/actions/workflow/status/shaankhosla/repeat/ci.yaml?branch=main&label=CI&logo=github" />
   </a>
+  <a href="https://shaankhosla.github.io/repeat/">
+    <img alt="Documentation" src="https://img.shields.io/badge/docs-GitHub%20Pages-blue?logo=github" />
+  </a>
   <a href="https://github.com/shaankhosla/repeat/releases">
     <img alt="Latest Release" src="https://img.shields.io/github/v/release/shaankhosla/repeat?display_name=tag&sort=semver&logo=github" />
   </a>
