@@ -355,18 +355,61 @@ async fn resolve_missing_clozes(hash_cards: &mut HashMap<String, Card>) -> Resul
         return Ok(());
     }
 
+    let total_missing = missing.len();
+    let additional_missing = total_missing.saturating_sub(1);
     let mut user_prompt = String::new();
     let sample_user_cloze = missing.first().map(|(_, text)| text.as_str()).unwrap_or("");
 
-    user_prompt.push_str(
-        "There is a Cloze text in your collection that doesn't have a valid cloze []:\n\n",
-    );
-    user_prompt.push_str(sample_user_cloze);
-    user_prompt.push_str(&format!("\n\nrepeat can send this text, along with {} other cloze card(s) without valid clozes, to an LLM to generate a Cloze for you.\n\n", missing.len()-1));
+    let cyan = "\x1b[36m";
+    let yellow = "\x1b[33m";
+    let dim = "\x1b[2m";
+    let reset = "\x1b[0m";
+    let plural = if total_missing == 1 { "" } else { "s" };
+
+    user_prompt.push('\n');
+    user_prompt.push_str(&format!(
+        "{cyan}repeat{reset} found {yellow}{total_missing}{reset} cloze card{plural} missing bracketed deletions.{reset}",
+        cyan = cyan,
+        yellow = yellow,
+        total_missing = total_missing,
+        plural = plural,
+        reset = reset,
+    ));
+
+    if !sample_user_cloze.trim().is_empty() {
+        user_prompt.push_str(&format!(
+            "\n\n{dim}Example needing a Cloze:{reset}\n{sample}\n",
+            dim = dim,
+            reset = reset,
+            sample = sample_user_cloze
+        ));
+    } else {
+        user_prompt.push('\n');
+    }
+
+    let other_fragment = if additional_missing > 0 {
+        let other_plural = if additional_missing == 1 { "" } else { "s" };
+        format!(
+            " along with {yellow}{additional_missing}{reset} other card{other_plural}",
+            yellow = yellow,
+            additional_missing = additional_missing,
+            reset = reset,
+            other_plural = other_plural
+        )
+    } else {
+        String::new()
+    };
+
+    user_prompt.push_str(&format!(
+        "\n{cyan}repeat{reset} can send this text{other_fragment} to an LLM to generate a Cloze for you.{reset}\n",
+        cyan = cyan,
+        reset = reset,
+        other_fragment = other_fragment
+    ));
 
     let client = ensure_client(&user_prompt)
         .await
-       .with_context(|| format!("Failed to initialize LLM client, cannot synthesize Cloze text for {} cards in your collection:\n\n", missing.len()))?;
+       .with_context(|| format!("Failed to initialize LLM client, cannot synthesize Cloze text for {} card{plural} in your collection",total_missing))?;
     let client = Arc::new(client);
 
     let mut tasks = stream::iter(missing.into_iter().map(|(hash, text)| {

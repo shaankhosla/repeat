@@ -13,6 +13,19 @@ const USERNAME: &str = "openai";
 use keyring::Entry;
 
 const CLOZE_MODEL: &str = "gpt-5-nano";
+const SYSTEM_PROMPT: &str = r#"
+You convert flashcards into Cloze deletions.
+A Cloze deletion is denoted by square brackets: [hidden text].
+Only add one Cloze deletion.
+"#;
+
+const USER_PROMPT_TEMPLATE: &str = r#"
+Turn the following text into a Cloze card by inserting [] around the hidden portion.
+Return the exact same text, only with brackets added.
+
+Text:
+{}
+"#;
 
 pub async fn ensure_client(user_prompt: &str) -> Result<Client<OpenAIConfig>> {
     let llm_key = load_api_key();
@@ -27,12 +40,12 @@ pub async fn ensure_client(user_prompt: &str) -> Result<Client<OpenAIConfig>> {
             api_key
         }
     };
-    let client = initialize_client(&key).await?;
+    let client = initialize_client(&key)?;
     healthcheck_client(&client).await?;
     Ok(client)
 }
 
-async fn initialize_client(api_key: &str) -> Result<Client<OpenAIConfig>> {
+fn initialize_client(api_key: &str) -> Result<Client<OpenAIConfig>> {
     let config = OpenAIConfig::new().with_api_key(api_key);
 
     let client = Client::with_config(config);
@@ -51,29 +64,21 @@ async fn healthcheck_client(client: &Client<OpenAIConfig>) -> Result<()> {
 pub async fn request_cloze(client: &Client<OpenAIConfig>, text: &str) -> Result<String> {
     let request = CreateChatCompletionRequestArgs::default()
         .model(CLOZE_MODEL)
-        .max_tokens(200_u16)
+        .max_tokens(200)
         .temperature(0.2)
         .messages([
             ChatCompletionRequestSystemMessageArgs::default()
-                .content("You convert flashcards into Cloze deletions. A Cloze deletion is denoted by square brackets: [hidden text]. Only add in one Cloze deletion. Your goal is to highlight the part of the flashcard you believe is most critical for a studying user to be able to recall. It can be a word or a small phrase.")
+                .content(SYSTEM_PROMPT)
                 .build()?
                 .into(),
             ChatCompletionRequestUserMessageArgs::default()
-                .content(format!(
-                    "Turn the following text into a Cloze card by inserting [] around the hidden portion. Return the exact same text as below, but just with the addition of brackets around the Cloze deletion. For example, if you were shown the follwing text:\n\nC: Speech is produced in Broca's area.\n\nThis might be a good response to produce:\n\nC: Speech is produced in [Broca's] area.\n\nThis is the text you should generate the Cloze deletion for:
-:\n{}",
-                    text
-                ))
+                .content(format!(USER_PROMPT_TEMPLATE, text))
                 .build()?
                 .into(),
         ])
         .build()?;
 
-    let response = client
-        .chat()
-        .create(request)
-        .await
-        .context("LLM API failed to request Cloze generation")?;
+    let response = client.chat().create(request).await?;
 
     let output = response
         .choices
@@ -85,16 +90,20 @@ pub async fn request_cloze(client: &Client<OpenAIConfig>, text: &str) -> Result<
 }
 
 fn prompt_user_for_key(prompt: &str) -> Result<String> {
-    // let dim = "\x1b[2m";
+    let dim = "\x1b[2m";
     let reset = "\x1b[0m";
-    // let cyan = "\x1b[36m";
-    // let red = "\x1b[31m";
     let green = "\x1b[32m";
-    // let blue = "\x1b[34m";
 
-    println!("{}", prompt);
+    println!("\n{}", prompt);
     println!(
-        "{green}If you'd like to use an LLM for this feature, please enter your OpenAI API{reset} key (https://platform.openai.com/account/api-keys). It's stored locally for future use. Leave blank if not."
+        "{green}Enter your OpenAI API key{reset} (https://platform.openai.com/account/api-keys) to enable the LLM helper. It's stored locally for future use.",
+        green = green,
+        reset = reset
+    );
+    println!(
+        "{dim}Leave the field blank to skip—repeat will continue without sending anything.{reset}",
+        dim = dim,
+        reset = reset
     );
     let _ = io::stdout().flush();
 
