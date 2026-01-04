@@ -27,32 +27,67 @@
 - Terminal UX: `repeat drill` renders cards with ratatui; `repeat create` launches an editor dedicated to card capture; `repeat check` displays progress at a glance.
 - Import from Anki: convert `.apkg` exports into Markdown decks with `repeat import` so you can bring your existing collection along.
 
+
 ## Documentation
 
-Installation, quick-start, and usage guides now live in the [mdBook documentation](https://shaankhosla.github.io/repeat/). You can also build them locally with `mdbook build docs`.
+Installation, quick-start, and usage guides now live in the [documentation](https://shaankhosla.github.io/repeat/). 
 
-## Development
+## Installation
 
-Run the lint/test suite with:
+### Install script (Linux & macOS) - Recommended
 
 ```
-cargo fmt --all
-cargo clippy
-cargo test
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/shaankhosla/repeat/releases/latest/download/repeat-installer.sh | sh
 ```
 
-The repository also ships a `just precommit` recipe that runs the same checks.
+### Homebrew (macOS)
+
+```
+brew tap shaankhosla/homebrew-tap
+brew install repeat
+```
+
+### Windows (PowerShell)
+
+```
+irm https://github.com/shaankhosla/repeat/releases/latest/download/repeat-installer.ps1 | iex
+```
+
+### npm 
+
+```
+npm install @shaankhosla/repeat
+```
+
+## Quick Start
+
+1. Create a deck in Markdown (`cards/neuro.md`):
+
+   ```markdown
+   You can put your normal notes here, `repeat` will ignore them.
+   Once a "Q:,A:,C:" block is detected, it will automatically
+   turn it into a card.
+
+   Q: What does a synaptic vesicle store?
+   A: Neurotransmitters awaiting release.
+
+   ---
+   Use a separator to mark the end of a card^
+   Then feel free to go back to adding regular notes.
+
+   C: Speech is [produced] in [Broca's] area.
+   ```
 
 
-## Roadmap
+2. Index the cards and start a session:
 
-- [X] Import from Anki
-- [ ] Allow scrolling to other cards in a collection while creating a new card
-- [ ] Edit an existing card while keeping the progress intact
-- [ ] Allow for a fuzzy search of existing cards
-- [ ] Use LLMs to import from various content sources
+   ```
+   repeat drill cards
+   ```
+
+   - `Space`/`Enter`: reveal the answer or cloze.
+   - `1`: mark as `Fail`, `2`: mark as `Pass`.
+   - `Esc` or `Ctrl+C`: end the session early (progress so far is saved).
 
 
-## License
 
-Licensed under the Apache License, Version 2.0. See `LICENSE` for details.
