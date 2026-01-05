@@ -343,8 +343,16 @@ mod tests {
     use super::{cards_from_md, content_to_card, parse_card_lines};
     use crate::card::CardContent;
     use crate::crud::DB;
-    use crate::utils::register_all_cards;
+    use crate::utils::{get_hash, register_all_cards};
+    use proptest::prelude::*;
     use std::path::PathBuf;
+    proptest! {
+        #[test]
+        fn test_card_parser( content in "\\PC*") {
+            parse_card_lines(&content);
+            get_hash(&content);
+        }
+    }
 
     #[test]
     fn test_card_parsing() {
