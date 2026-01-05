@@ -1,6 +1,6 @@
 [package]
 name = "repeat"
-version = "0.0.23"
+version = "0.0.24"
 edition = "2024"
 repository = "https://github.com/shaankhosla/repeat"
 description="Spaced repetition, in your terminal"
@@ -30,9 +30,11 @@ serde = { version = "1.0", features = ["derive"] }
 reqwest = { version = "0.11", features = ["json"] }
 async-openai = "0.30.1"
 keyring = "2"
+open = "5"
 
 [dev-dependencies]
 criterion = { version = "0.8.1", features = ["async_tokio" ] }
+proptest = "1.6.0"
 
 [[bench]]
 name = "register_all_cards_bench"

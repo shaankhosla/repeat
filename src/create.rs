@@ -90,7 +90,7 @@ async fn create_card_append_file(db: &DB, path: &Path, contents: &str) -> Result
     Ok(())
 }
 
-async fn capture_cards(db: &DB, card_path: &Path) -> io::Result<()> {
+async fn capture_cards(db: &DB, card_path: &Path) -> Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(
@@ -104,11 +104,10 @@ async fn capture_cards(db: &DB, card_path: &Path) -> io::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     terminal.show_cursor()?;
-
-    let editor_result: io::Result<()> = async {
+    let editor_result: Result<()> = async {
         let mut editor = Editor::new();
         let mut status: Option<String> = None;
-        let existing_cards = cards_from_md(card_path).unwrap_or_default();
+        let existing_cards = cards_from_md(card_path)?;
         let unique_hashes: HashSet<_> = existing_cards.into_iter().map(|c| c.card_hash).collect();
 
         let mut num_cards_in_collection = unique_hashes.len();

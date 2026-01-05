@@ -9,6 +9,7 @@ pub mod fsrs;
 pub mod import;
 pub mod llm;
 pub mod markdown;
+pub mod media;
 pub mod stats;
 pub mod theme;
 pub mod utils;

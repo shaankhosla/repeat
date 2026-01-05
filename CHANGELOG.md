@@ -1,24 +1,15 @@
-## [0.0.23] - 2026-01-02
+## [0.0.24] - 2026-01-04
 
 ### 🚀 Features
 
-- Show time till next review in drill
-- Flash status on drill/create (#24)
-- Add short-term learning stages (#25)
+- Use github pages for docs (#30)
+- Play media from cards (#31)
 
 ### 🐛 Bug Fixes
 
-- Db test (#19)
-
-### 💼 Other
-
-- Init (#20)
-
-Co-authored-by: Shaan <shaankhosla@macbook-pro.mynetworksettings.com>
-- Init (#21)
-
-Co-authored-by: Shaan <shaankhosla@macbook-pro.mynetworksettings.com>
+- Exclude unreviewed cards from FSRS histograms (#26)
+- Update precommit to use SQLX_OFFLINE mode (#27)
 
 ### ⚙️ Miscellaneous Tasks
 
-- Fix justfile
+- Update readme with docs badge

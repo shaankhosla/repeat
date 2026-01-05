@@ -260,3 +260,15 @@ fn list_prefix(stack: &mut [ListKind]) -> String {
         "- ".to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::render_markdown;
+    use proptest::prelude::*;
+    proptest! {
+        #[test]
+        fn test_markdown_render( content in "\\PC*") {
+            render_markdown(&content);
+        }
+    }
+}

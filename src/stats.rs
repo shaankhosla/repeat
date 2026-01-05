@@ -45,8 +45,12 @@ impl<const N: usize> Histogram<N> {
         self.count += 1;
         self.sum += value;
     }
-    pub fn mean(&self) -> f64 {
-        self.sum / self.count as f64
+    pub fn mean(&self) -> Option<f64> {
+        if self.count == 0 {
+            None
+        } else {
+            Some(self.sum / self.count as f64)
+        }
     }
 }
 
@@ -108,10 +112,12 @@ impl CardStats {
                 }
             }
         }
-        self.difficulty_histogram.update(difficulty / 10.0);
+
         let Some(last_reviewed_at) = last_reviewed_at else {
             return;
         };
+
+        self.difficulty_histogram.update(difficulty / 10.0);
 
         let elapsed_days =
             now.signed_duration_since(last_reviewed_at).num_seconds() as f64 / 86_400.0;
@@ -163,7 +169,8 @@ mod tests {
         assert_eq!(stats.due_cards, 1);
         assert_eq!(stats.upcoming_month, 1);
         assert_eq!(stats.file_paths.get(&card.file_path), Some(&1));
-        assert_eq!(stats.difficulty_histogram.bins[2], 1);
+        // Difficulty histogram should NOT be updated for unreviewed cards
+        assert_eq!(stats.difficulty_histogram.bins.iter().sum::<u32>(), 0);
     }
 
     #[test]
@@ -201,5 +208,66 @@ mod tests {
         let recall = calculate_recall(4.0, 5.0);
         let idx = ((recall.clamp(0.0, 1.0) * 5.0) as usize).min(4);
         assert_eq!(stats.retrievability_histogram.bins[idx], 1);
+    }
+
+    #[test]
+    fn histogram_mean_returns_none_when_empty() {
+        let histogram: Histogram<5> = Histogram::default();
+        assert_eq!(histogram.mean(), None);
+    }
+
+    #[test]
+    fn histogram_mean_calculates_average_correctly() {
+        let mut histogram: Histogram<5> = Histogram::default();
+        histogram.update(0.2);
+        histogram.update(0.4);
+        histogram.update(0.6);
+
+        let mean = histogram.mean().unwrap();
+        assert!(
+            (mean - 0.4).abs() < 0.001,
+            "Expected mean ~0.4, got {}",
+            mean
+        );
+    }
+
+    #[test]
+    fn difficulty_histogram_not_updated_for_unreviewed_cards() {
+        let mut stats = CardStats::default();
+        let card = sample_card("deck/file.md");
+        let mut row = default_row();
+        row.review_count = 1;
+        row.difficulty = Some(7.5);
+        row.last_reviewed_at = None; // Card has never been reviewed
+
+        stats.update(&card, &row);
+
+        // Difficulty histogram should remain empty
+        assert_eq!(stats.difficulty_histogram.bins.iter().sum::<u32>(), 0);
+        assert_eq!(stats.difficulty_histogram.mean(), None);
+    }
+
+    #[test]
+    fn difficulty_histogram_updated_for_reviewed_cards() {
+        let mut stats = CardStats::default();
+        let card = sample_card("deck/file.md");
+        let mut row = default_row();
+        row.review_count = 3;
+        row.difficulty = Some(7.5);
+        row.stability = Some(10.0);
+        row.last_reviewed_at = Some(Utc::now() - Duration::days(2));
+
+        stats.update(&card, &row);
+
+        // Difficulty histogram should be updated (7.5 / 10.0 = 0.75)
+        let total_count: u32 = stats.difficulty_histogram.bins.iter().sum();
+        assert_eq!(total_count, 1);
+        assert!(stats.difficulty_histogram.mean().is_some());
+        let mean = stats.difficulty_histogram.mean().unwrap();
+        assert!(
+            (mean - 0.75).abs() < 0.001,
+            "Expected mean ~0.75, got {}",
+            mean
+        );
     }
 }
