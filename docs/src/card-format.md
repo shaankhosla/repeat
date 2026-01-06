@@ -28,6 +28,36 @@ Cards live in everyday Markdown. `repeat` scans for tagged sections and turns th
 ## Parsing Logic
 
 - Cards are detected by the presence of a `Q:/A:` or `C:` block. A horizontal rule (`---`) or the start of another card marks the end.
-- Cards are hashed with Blake3; editing the text resets the card's performance history.
+- Each card gets a hash (think fingerprint) built from its letters, numbers, and any `+`/`-` signs. Punctuation, spacing, and capitalization are ignored, so only meaningful text changes create a new history.
 - Metadata lives in `cards.db` under your OS data directory (for example, `~/Library/Application Support/repeat/cards.db` on macOS). Delete this file to reset history; the Markdown decks remain untouched.
 - Multi-line content is supported.
+
+### Edge case examples
+
+- **Markers must start at column 0.** Indented `Q:`, `C:`, or `---` lines are ignored by the scanner, so the snippet below produces zero cards.
+  ```markdown
+    Q: Skipped
+    A: Because the tag is indented
+  ```
+- **Next marker auto-closes the previous card.** A new `Q:` or `C:` flushes the current buffer even without `---`.
+  ```markdown
+  Q: First?
+  A: Ends here
+  Q: Second starts now
+  ```
+- **Notes need a separator.** Without a flush-left `---`, trailing notes remain part of the last card.
+  ```markdown
+  Q: Term?
+  A: Definition
+  This line still belongs to the answer
+  ```
+- **Basic cards require both tags.** Missing or blank `Q:`/`A:` blocks throw a parse error for that card.
+  ```markdown
+  Q: What is ATP?
+  ---  ← rejected; no answer was captured
+  ```
+- **Cloze blocks need real `[hidden]` text.** Empty brackets or unmatched `[`/`]` abort parsing.
+  ```markdown
+  C: Bad []    ← rejected
+  C: Half [good   ← rejected
+  ```

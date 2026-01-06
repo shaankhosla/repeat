@@ -10,7 +10,7 @@ Your decks stay in plain Markdown wherever you save them, but progress metadata 
 
 ## What happens if I edit or move a card?
 
-Every card is hashed based on its text, so edits produce a new hash and therefore start a fresh review history. This makes refactors safe—old records are ignored after their content disappears—but also means typos fixes reset their interval, so bundle small edits if you care about keeping streaks. Just moving blocks between files will not reset review history since the content of the card will be the same
+Each card gets a hash that only looks at the actual letters, numbers, and any `+`/`-` signs. We ignore punctuation, spacing, and capitalization, so cleaning up commas or case won’t touch your streak. Rewrite the wording itself and you’ll start fresh. Moving blocks between files is safe because the text stays the same.
 
 ## Can I study ahead or repeat lapses immediately?
 
