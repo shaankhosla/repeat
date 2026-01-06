@@ -26,7 +26,7 @@ Launch the capture editor for a specific Markdown file (it is created if missing
 
 - `Ctrl+B`: start a basic (`Q:/A:`) template.
 - `Ctrl+K`: start a cloze (`C:`) template.
-- `Ctrl+S`: save the current card (hash collisions are rejected).
+- `Ctrl+S`: save the current card; you’ll be warned if another card already uses the same meaningful text.
 - Arrow keys/PageUp/PageDown: move the cursor; `Tab`, `Enter`, `Backspace`, and `Delete` work as expected.
 - `Esc` or `Ctrl+C`: exit the editor.
 
