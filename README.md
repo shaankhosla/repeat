@@ -26,7 +26,7 @@
 ## Features
 
 - Cards live in `.md` files, so edit them using your favorite markdown editor, back them up with version control, and let them live alongside regular notes.
-- Progress is tracked with a hash of the card content, so edits automatically reset their progress.
+ - Progress is tracked with a hash of the meaningful words, so real text changes reset progress while punctuation or casing tweaks do not.
 - Free Spaced Repetition Scheduler (FSRS), a state-of-the-art algorithm targeting 90% recall, automatically schedules reviews for you.
 - Terminal UX: `repeat drill` renders cards with ratatui; `repeat create` launches an editor dedicated to card capture; `repeat check` displays progress at a glance.
 - Inline media support: reference local images/audio/video inside your decks and open them from a drill session without leaving the terminal.
@@ -90,5 +90,4 @@ npm install @shaankhosla/repeat
    - `O`: open the first media file (image/audio/video) referenced in the current card before revealing the answer.
    - `1`: mark as `Fail`, `2`: mark as `Pass`.
    - `Esc` or `Ctrl+C`: end the session early (progress so far is saved).
-
 
