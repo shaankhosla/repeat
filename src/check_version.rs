@@ -101,7 +101,9 @@ pub async fn prompt_for_new_version(db: &DB, notification: &VersionNotification)
         notification.current_version, notification.latest_version
     );
 
-    println!("Check {blue}https://github.com/shaankhosla/repeater/releases{reset} for more details");
+    println!(
+        "Check {blue}https://github.com/shaankhosla/repeater/releases{reset} for more details"
+    );
 
     println!("{dim}Press any key to dismiss (I'll remind you again in a few days){reset}");
     let _ = io::stdout().flush();
