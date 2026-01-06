@@ -35,9 +35,9 @@ impl ClozeRange {
             return Err(anyhow!("Invalid cloze range: start must be < end"));
         }
 
-        if end - start <= 2 {
+        if end - start <= 1 {
             return Err(anyhow!(
-                "Invalid cloze range: range must be at least length 2"
+                "Invalid cloze range: range must be at least length 1"
             ));
         }
 
