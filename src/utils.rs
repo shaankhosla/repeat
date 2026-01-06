@@ -34,7 +34,7 @@ pub fn find_cloze_ranges(text: &str) -> Vec<(usize, usize)> {
             '[' if start.is_none() => start = Some(i),
             ']' if start.is_some() => {
                 let s = start.take().unwrap();
-                let e = i + ch.len_utf8() - 1;
+                let e = i + ch.len_utf8();
                 ranges.push((s, e));
             }
             _ => {}
@@ -522,7 +522,7 @@ mod tests {
             assert_eq!(text, "ping? [pong]");
             let range = cloze_range.as_ref().expect("range to exist");
             assert_eq!(range.start, 6_usize);
-            assert_eq!(range.end, 11_usize);
+            assert_eq!(range.end, 12_usize);
         } else {
             panic!("Expected CardContent::Cloze");
         }
