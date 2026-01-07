@@ -25,12 +25,11 @@
 
 ## Features
 
-- Cards live in `.md` files, so edit them using your favorite markdown editor, back them up with version control, and let them live alongside regular notes.
- - Progress is tracked with a hash of the meaningful words, so real text changes reset progress while punctuation or casing tweaks do not.
-- Free Spaced Repetition Scheduler (FSRS), a state-of-the-art algorithm targeting 90% recall, automatically schedules reviews for you.
-- Terminal UX: `repeater drill` renders cards with ratatui; `repeater create` launches an editor dedicated to card capture; `repeater check` displays progress at a glance.
-- Inline media support: reference local images/audio/video inside your decks and open them from a drill session without leaving the terminal.
-- Import from Anki: convert `.apkg` exports into Markdown decks with `repeater import` so you can bring your existing collection along.
+- **Markdown-first decks**: write basic Q/A + cloze cards in plain `.md` alongside your notes.
+- **Stable card identity**: “meaning-only” hashing; formatting tweaks don’t reset progress.
+- **FSRS scheduling**: automatic reviews targeting ~90% recall (simple Pass/Fail).
+- **Terminal workflow**: drill TUI, capture editor, and progress dashboard (`drill`, `create`, `check`).
+- **Media + migration**: open linked images/audio/video; import Anki `.apkg` to Markdown.
 
 
 ## Installation
