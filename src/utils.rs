@@ -446,7 +446,7 @@ pub async fn resolve_missing_clozes(cards: &mut [Card]) -> Result<()> {
     };
 
     user_prompt.push_str(&format!(
-        "\n{cyan}repeat{reset} can send this text{other_fragment} to an LLM to generate a Cloze for you.{reset}\n",
+        "\n{cyan}repeater{reset} can send this text{other_fragment} to an LLM to generate a Cloze for you.{reset}\n",
         cyan = cyan,
         reset = reset,
         other_fragment = other_fragment
