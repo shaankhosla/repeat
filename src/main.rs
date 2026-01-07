@@ -3,12 +3,12 @@ use std::path::PathBuf;
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand, ValueHint};
 
-use repeat::crud::DB;
-use repeat::{check, create, drill, import, llm};
+use repeater::crud::DB;
+use repeater::{check, create, drill, import, llm};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "repeat",
+    name = "repeater",
     version,
     about = "Spaced repetition for the terminal.",
     long_about = None,
@@ -144,6 +144,5 @@ async fn handle_llm_command(set: Option<String>, clear: bool, test: bool) -> Res
     if !action_taken {
         bail!("No action provided. Use --set, --clear, or --test.");
     }
-
     Ok(())
 }
