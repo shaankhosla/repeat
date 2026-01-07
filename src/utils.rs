@@ -413,7 +413,7 @@ pub async fn resolve_missing_clozes(cards: &mut [Card]) -> Result<()> {
 
     user_prompt.push('\n');
     user_prompt.push_str(&format!(
-        "{cyan}repeat{reset} found {yellow}{total_missing}{reset} cloze card{plural} missing bracketed deletions.{reset}",
+        "{cyan}repeater{reset} found {yellow}{total_missing}{reset} cloze card{plural} missing bracketed deletions.{reset}",
         cyan = cyan,
         yellow = yellow,
         total_missing = total_missing,
