@@ -8,7 +8,7 @@ use async_openai::types::{
 use async_openai::{Client, config::OpenAIConfig};
 use rpassword::read_password;
 
-const SERVICE: &str = "com.repeat";
+const SERVICE: &str = "com.repeater";
 const USERNAME: &str = "openai:default";
 
 use keyring::{Entry, Error as KeyringError};
@@ -36,7 +36,7 @@ This is the text you should generate the Cloze deletion for:
 
 "#;
 
-pub const API_KEY_ENV: &str = "REPEAT_OPENAI_API_KEY";
+pub const API_KEY_ENV: &str = "REPEATER_OPENAI_API_KEY";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApiKeySource {
@@ -60,7 +60,7 @@ pub fn ensure_client(user_prompt: &str) -> Result<Client<OpenAIConfig>> {
             let api_key = prompt_for_api_key(user_prompt)?;
             if api_key.is_empty() {
                 return Err(anyhow!(
-                    "No API key provided. Set {} or run `repeat llm key --set <KEY>`.",
+                    "No API key provided. Set {} or run `repeater llm key --set <KEY>`.",
                     API_KEY_ENV
                 ));
             }
@@ -75,7 +75,7 @@ pub fn ensure_client(user_prompt: &str) -> Result<Client<OpenAIConfig>> {
 pub async fn test_configured_api_key() -> Result<ApiKeySource> {
     let (key, source) = resolve_configured_api_key()?.ok_or_else(|| {
         anyhow!(
-            "LLM features are disabled. To enable, set {} or run `repeat llm key --set <KEY>`.",
+            "LLM features are disabled. To enable, set {} or run `repeater llm key --set <KEY>`.",
             API_KEY_ENV
         )
     })?;
