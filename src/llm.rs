@@ -1,5 +1,6 @@
 use std::env;
 
+use crate::utils::strip_controls_and_escapes;
 use anyhow::{Context, Result, anyhow, bail};
 use async_openai::types::{
     ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
@@ -153,12 +154,15 @@ pub fn prompt_for_api_key(prompt: &str) -> Result<String> {
         reset = reset
     );
 
-    let input = read_password().context("Failed to read API key")?;
+    let mut input = read_password().context("Failed to read API key")?;
+    // Make input safe for use in a header
+    input = strip_controls_and_escapes(&input);
     Ok(input.trim().to_string())
 }
 
 pub fn store_api_key(api_key: &str) -> Result<()> {
     let trimmed = api_key.trim();
+
     if trimmed.is_empty() {
         bail!("Cannot store an empty API key");
     }
