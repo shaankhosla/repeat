@@ -338,7 +338,6 @@ fn format_card_text(card: &Card, show_answer: bool) -> String {
 #[cfg(test)]
 mod tests {
     use crate::card::ClozeRange;
-    use crate::cloze_utils::find_cloze_ranges;
 
     use super::*;
     use std::path::PathBuf;
@@ -378,36 +377,6 @@ mod tests {
 
         let shown = format_card_text(&card, true);
         assert!(shown.contains("Answer"));
-    }
-
-    #[test]
-    fn mask_cloze_text_handles_unicode_and_bad_ranges() {
-        let text = "Capital of 日本 is [東京]";
-
-        let cloze_idxs = find_cloze_ranges(text);
-        let range: ClozeRange = cloze_idxs
-            .first()
-            .map(|(start, end)| ClozeRange::new(*start, *end))
-            .transpose()
-            .unwrap()
-            .unwrap();
-        let masked = mask_cloze_text(text, &range);
-        assert_eq!(masked, "Capital of 日本 is [___]");
-
-        let text = "Capital of 日本 is [longer text is in this bracket]";
-
-        let cloze_idxs = find_cloze_ranges(text);
-        let range: ClozeRange = cloze_idxs
-            .first()
-            .map(|(start, end)| ClozeRange::new(*start, *end))
-            .transpose()
-            .unwrap()
-            .unwrap();
-        let masked = mask_cloze_text(text, &range);
-        assert_eq!(
-            masked,
-            "Capital of 日本 is [______________________________]"
-        );
     }
 
     #[test]

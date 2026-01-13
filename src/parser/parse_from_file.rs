@@ -297,10 +297,9 @@ pub async fn register_all_cards(db: &DB, paths: Vec<PathBuf>) -> Result<HashMap<
 
 #[cfg(test)]
 mod tests {
-    use super::{cards_from_md, content_to_card, parse_card_lines};
+    use super::{cards_from_md, content_to_card, parse_card_lines, register_all_cards};
     use crate::card::CardContent;
     use crate::crud::DB;
-    use crate::parser::register_all_cards;
     use std::path::PathBuf;
 
     #[test]

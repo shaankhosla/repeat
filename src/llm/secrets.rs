@@ -70,29 +70,18 @@ pub fn store_api_key(api_key: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn resolve_configured_api_key() -> Result<Option<(String, ApiKeySource)>> {
-    if let Some(env_key) = load_env_api_key() {
-        return Ok(Some((env_key, ApiKeySource::Environment)));
+pub fn get_api_key_from_sources() -> Result<Option<(String, ApiKeySource)>> {
+    // 1. Environment variable
+    if let Ok(value) = env::var(API_KEY_ENV)
+        && !value.trim().is_empty()
+    {
+        return Ok(Some((value, ApiKeySource::Environment)));
     }
 
-    if let Some(stored) = load_stored_api_key()? {
-        return Ok(Some((stored, ApiKeySource::Keyring)));
-    }
-
-    Ok(None)
-}
-
-fn load_env_api_key() -> Option<String> {
-    match env::var(API_KEY_ENV) {
-        Ok(value) if !value.trim().is_empty() => Some(value),
-        _ => None,
-    }
-}
-
-fn load_stored_api_key() -> Result<Option<String>> {
+    // 2. Keyring
     let entry = Entry::new(SERVICE, USERNAME)?;
     match entry.get_password() {
-        Ok(password) => Ok(Some(password)),
+        Ok(password) => Ok(Some((password, ApiKeySource::Keyring))),
         Err(KeyringError::NoEntry) => Ok(None),
         Err(err) => Err(anyhow!(err)),
     }

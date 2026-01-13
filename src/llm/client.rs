@@ -2,10 +2,10 @@ use crate::llm::secrets::API_KEY_ENV;
 use anyhow::{Context, Result, anyhow};
 use async_openai::{Client, config::OpenAIConfig};
 
-use super::secrets::{ApiKeySource, prompt_for_api_key, resolve_configured_api_key, store_api_key};
+use super::secrets::{ApiKeySource, get_api_key_from_sources, prompt_for_api_key, store_api_key};
 
 pub fn ensure_client(user_prompt: &str) -> Result<Client<OpenAIConfig>> {
-    let key = match resolve_configured_api_key()? {
+    let key = match get_api_key_from_sources()? {
         Some((api_key, _source)) => api_key,
         None => {
             let api_key = prompt_for_api_key(user_prompt)?;
@@ -24,7 +24,7 @@ pub fn ensure_client(user_prompt: &str) -> Result<Client<OpenAIConfig>> {
 }
 
 pub async fn test_configured_api_key() -> Result<ApiKeySource> {
-    let (key, source) = resolve_configured_api_key()?.ok_or_else(|| {
+    let (key, source) = get_api_key_from_sources()?.ok_or_else(|| {
         anyhow!(
             "LLM features are disabled. To enable, set {} or run `repeater llm key --set <KEY>`.",
             API_KEY_ENV

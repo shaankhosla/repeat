@@ -153,12 +153,12 @@ pub async fn resolve_missing_clozes(cards: &mut [Card]) -> Result<()> {
         .collect();
 
     let user_prompt = build_user_prompt(&cards_with_no_clozes);
+
     let plural = if cards_with_no_clozes.len() == 1 {
         ""
     } else {
         "s"
     };
-
     let client = ensure_client(&user_prompt)
        .with_context(|| format!("Failed to initialize LLM client, cannot synthesize Cloze text for {} card{plural} in your collection", cards_with_no_clozes.len()))?;
     let client = Arc::new(client);
@@ -177,4 +177,41 @@ pub fn mask_cloze_text(text: &str, range: &ClozeRange) -> String {
 
     let masked = format!("{}[{}]{}", &text[..start], placeholder, &text[end..]);
     masked
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::card::ClozeRange;
+    use crate::cloze_utils::find_cloze_ranges;
+
+    use super::*;
+    #[test]
+    fn mask_cloze_text_handles_unicode_and_bad_ranges() {
+        let text = "Capital of 日本 is [東京]";
+
+        let cloze_idxs = find_cloze_ranges(text);
+        let range: ClozeRange = cloze_idxs
+            .first()
+            .map(|(start, end)| ClozeRange::new(*start, *end))
+            .transpose()
+            .unwrap()
+            .unwrap();
+        let masked = mask_cloze_text(text, &range);
+        assert_eq!(masked, "Capital of 日本 is [___]");
+
+        let text = "Capital of 日本 is [longer text is in this bracket]";
+
+        let cloze_idxs = find_cloze_ranges(text);
+        let range: ClozeRange = cloze_idxs
+            .first()
+            .map(|(start, end)| ClozeRange::new(*start, *end))
+            .transpose()
+            .unwrap()
+            .unwrap();
+        let masked = mask_cloze_text(text, &range);
+        assert_eq!(
+            masked,
+            "Capital of 日本 is [______________________________]"
+        );
+    }
 }
