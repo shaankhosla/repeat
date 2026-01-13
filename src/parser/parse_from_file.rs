@@ -15,7 +15,7 @@ use tokio::sync::mpsc;
 
 use crate::crud::DB;
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 
 fn parse_card_lines(contents: &str) -> (Option<String>, Option<String>, Option<String>) {
     #[derive(Copy, Clone)]
@@ -158,10 +158,7 @@ pub fn content_to_card(
             card_hash,
         })
     } else {
-        Err(anyhow!(
-            "Unable to parse anything from card contents:\n{}",
-            contents
-        ))
+        bail!("Unable to parse anything from card contents:\n{}", contents);
     }
 }
 

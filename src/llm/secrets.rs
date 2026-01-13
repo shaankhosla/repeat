@@ -1,7 +1,7 @@
 use std::env;
 
 use crate::utils::strip_controls_and_escapes;
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 
 use rpassword::read_password;
 
@@ -32,7 +32,7 @@ pub fn clear_api_key() -> Result<bool> {
     match entry.delete_password() {
         Ok(()) => Ok(true),
         Err(KeyringError::NoEntry) => Ok(false),
-        Err(err) => Err(anyhow!(err)),
+        Err(err) => bail!(err),
     }
 }
 
@@ -83,6 +83,6 @@ pub fn get_api_key_from_sources() -> Result<Option<(String, ApiKeySource)>> {
     match entry.get_password() {
         Ok(password) => Ok(Some((password, ApiKeySource::Keyring))),
         Err(KeyringError::NoEntry) => Ok(None),
-        Err(err) => Err(anyhow!(err)),
+        Err(err) => bail!(err),
     }
 }

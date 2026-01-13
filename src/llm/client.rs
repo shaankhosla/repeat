@@ -1,5 +1,5 @@
 use crate::llm::secrets::API_KEY_ENV;
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 use async_openai::{Client, config::OpenAIConfig};
 
 use super::secrets::{ApiKeySource, get_api_key_from_sources, prompt_for_api_key, store_api_key};
@@ -10,10 +10,10 @@ pub fn ensure_client(user_prompt: &str) -> Result<Client<OpenAIConfig>> {
         None => {
             let api_key = prompt_for_api_key(user_prompt)?;
             if api_key.is_empty() {
-                return Err(anyhow!(
+                bail!(
                     "No API key provided. Set {} or run `repeater llm key --set <KEY>`.",
                     API_KEY_ENV
-                ));
+                );
             }
             store_api_key(&api_key)?;
             api_key
