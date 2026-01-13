@@ -29,7 +29,7 @@ impl ApiKeySource {
 
 pub fn clear_api_key() -> Result<bool> {
     let entry = Entry::new(SERVICE, USERNAME)?;
-    match entry.delete_password() {
+    match entry.delete_credential() {
         Ok(()) => Ok(true),
         Err(KeyringError::NoEntry) => Ok(false),
         Err(err) => bail!(err),
