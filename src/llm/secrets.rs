@@ -53,30 +53,53 @@ pub fn prompt_for_api_key(prompt: &str) -> Result<String> {
     Ok(input.trim().to_string())
 }
 
-pub fn store_api_key(api_key: &str) -> Result<()> {
-    let trimmed = api_key.trim();
+#[derive(Debug)]
+pub struct ApiKeyLookup {
+    pub api_key: Option<String>,
+    pub source: Option<ApiKeySource>,
+    pub keyring_entry: Option<Entry>,
+}
 
+pub fn store_api_key(api_key: &str) -> Result<()> {
+    let entry = Entry::new(SERVICE, USERNAME)?;
+    store_api_key_with_entry(entry, api_key)
+}
+
+pub fn store_api_key_with_entry(entry: Entry, api_key: &str) -> Result<()> {
+    let trimmed = api_key.trim();
     if trimmed.is_empty() {
         bail!("Cannot store an empty API key");
     }
-    let entry = Entry::new(SERVICE, USERNAME)?;
+
     entry.set_password(trimmed)?;
     Ok(())
 }
 
-pub fn get_api_key_from_sources() -> Result<Option<(String, ApiKeySource)>> {
+pub fn get_api_key_from_sources() -> Result<ApiKeyLookup> {
     // 1. Environment variable
     if let Ok(value) = env::var(API_KEY_ENV)
         && !value.trim().is_empty()
     {
-        return Ok(Some((value, ApiKeySource::Environment)));
+        return Ok(ApiKeyLookup {
+            api_key: Some(value),
+            source: Some(ApiKeySource::Environment),
+            keyring_entry: None,
+        });
     }
 
     // 2. Keyring
     let entry = Entry::new(SERVICE, USERNAME)?;
     match entry.get_password() {
-        Ok(password) => Ok(Some((password, ApiKeySource::Keyring))),
-        Err(KeyringError::NoEntry) => Ok(None),
+        Ok(password) => Ok(ApiKeyLookup {
+            api_key: Some(password),
+            source: Some(ApiKeySource::Keyring),
+            keyring_entry: Some(entry),
+        }),
+        Err(KeyringError::NoEntry) => Ok(ApiKeyLookup {
+            api_key: None,
+            source: None,
+            keyring_entry: Some(entry),
+        }),
         Err(err) => bail!(err),
     }
 }

@@ -3,29 +3,45 @@ use anyhow::{Context, Result, anyhow, bail};
 
 use async_openai::{Client, config::OpenAIConfig};
 
-use super::secrets::{ApiKeySource, get_api_key_from_sources, prompt_for_api_key, store_api_key};
+use super::secrets::{
+    ApiKeySource, get_api_key_from_sources, prompt_for_api_key, store_api_key,
+    store_api_key_with_entry,
+};
 
 pub fn ensure_client(user_prompt: &str) -> Result<Client<OpenAIConfig>> {
-    let key = match get_api_key_from_sources()? {
-        Some((api_key, _source)) => api_key,
-        None => {
-            let api_key = prompt_for_api_key(user_prompt)?;
-            if api_key.is_empty() {
-                bail!(
-                    "No API key provided. Set {} or run `repeater llm key --set <KEY>`.",
-                    API_KEY_ENV
-                );
-            }
-            store_api_key(&api_key)?;
-            api_key
+    let lookup = get_api_key_from_sources()?;
+    let key = if let Some(api_key) = lookup.api_key {
+        api_key
+    } else {
+        let api_key = prompt_for_api_key(user_prompt)?;
+        if api_key.is_empty() {
+            bail!(
+                "No API key provided. Set {} or run `repeater llm key --set <KEY>`.",
+                API_KEY_ENV
+            );
         }
+
+        if let Some(entry) = lookup.keyring_entry {
+            store_api_key_with_entry(entry, &api_key)?;
+        } else {
+            store_api_key(&api_key)?;
+        }
+
+        api_key
     };
     let client = initialize_client(&key)?;
     Ok(client)
 }
 
 pub async fn test_configured_api_key() -> Result<ApiKeySource> {
-    let (key, source) = get_api_key_from_sources()?.ok_or_else(|| {
+    let lookup = get_api_key_from_sources()?;
+    let key = lookup.api_key.ok_or_else(|| {
+        anyhow!(
+            "LLM features are disabled. To enable, set {} or run `repeater llm key --set <KEY>`.",
+            API_KEY_ENV
+        )
+    })?;
+    let source = lookup.source.ok_or_else(|| {
         anyhow!(
             "LLM features are disabled. To enable, set {} or run `repeater llm key --set <KEY>`.",
             API_KEY_ENV
