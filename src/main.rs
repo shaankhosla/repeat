@@ -41,6 +41,9 @@ enum Command {
         /// Maximum number of new cards to drill in a session.
         #[arg(long, value_name = "COUNT")]
         new_card_limit: Option<usize>,
+        /// Rephrase  card questions via the LLM helper before the session starts.
+        #[arg(long = "rephrase", default_value_t = false)]
+        rephrase_questions: bool,
     },
     /// Re-index decks and show collection stats
     Check {
@@ -98,8 +101,9 @@ async fn run_cli() -> Result<()> {
             paths,
             card_limit,
             new_card_limit,
+            rephrase_questions,
         } => {
-            drill::run(&db, paths, card_limit, new_card_limit).await?;
+            drill::run(&db, paths, card_limit, new_card_limit, rephrase_questions).await?;
         }
         Command::Check { paths } => {
             let _ = check::run(&db, paths).await?;

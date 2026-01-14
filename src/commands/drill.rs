@@ -9,6 +9,7 @@ use crate::fsrs::{LEARN_AHEAD_THRESHOLD_MINS, ReviewStatus};
 use crate::parser::register_all_cards;
 use crate::parser::render_markdown;
 use crate::parser::{Media, extract_media};
+use crate::question_utils::rephrase_basic_questions;
 use crate::tui::Theme;
 
 use anyhow::{Context, Result};
@@ -37,6 +38,7 @@ pub async fn run(
     paths: Vec<PathBuf>,
     card_limit: Option<usize>,
     new_card_limit: Option<usize>,
+    rephrase_questions: bool,
 ) -> Result<()> {
     let (hash_cards, _) = register_all_cards(db, paths).await?;
     let mut cards_due_today = db
@@ -48,9 +50,17 @@ pub async fn run(
         return Ok(());
     }
 
-    resolve_missing_clozes(&mut cards_due_today).await?;
+    preprocess_cards(&mut cards_due_today, rephrase_questions).await?;
     start_drill_session(db, cards_due_today).await?;
 
+    Ok(())
+}
+
+async fn preprocess_cards(cards: &mut [Card], rephrase_questions: bool) -> Result<()> {
+    if rephrase_questions {
+        rephrase_basic_questions(cards).await?;
+    }
+    resolve_missing_clozes(cards).await?;
     Ok(())
 }
 
