@@ -129,7 +129,7 @@ fn collection_panel(
 ) -> Paragraph<'static> {
     let lines = vec![
         Line::from(vec![
-            Theme::span("Tracked cards"),
+            Theme::span("Cards Found"),
             Theme::bullet(),
             Theme::label_span(format!("{}", crud_stats.num_cards)),
         ]),
@@ -165,11 +165,11 @@ fn collection_panel(
             )),
         ]),
         Line::from(vec![
-            Theme::span("Files With Cards"),
+            Theme::span("Files Containing Cards"),
             Theme::bullet(),
             Theme::label_span(format!("{}", crud_stats.file_paths.len())),
             Theme::bullet(),
-            Theme::span("Markdown Files"),
+            Theme::span("Markdowns Parsed"),
             Theme::bullet(),
             Theme::label_span(format!("{}", file_traversal_stats.markdown_files)),
             Theme::bullet(),
