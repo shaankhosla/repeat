@@ -3,20 +3,16 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use crate::card::{Card, CardContent};
-use crate::cloze_utils::{cloze_user_prompt, mask_cloze_text, resolve_missing_clozes_with_client};
+use crate::cloze_utils::mask_cloze_text;
 use crate::crud::DB;
 use crate::fsrs::{LEARN_AHEAD_THRESHOLD_MINS, ReviewStatus};
 use crate::llm::drill_preprocessor::DrillPreprocessor;
-use crate::llm::{drill_preprocessor, ensure_client};
 use crate::parser::register_all_cards;
 use crate::parser::render_markdown;
 use crate::parser::{Media, extract_media};
-use crate::question_utils::{rephrase_basic_questions_with_client, rephrase_user_prompt};
 use crate::tui::Theme;
 
 use anyhow::{Context, Result};
-use async_openai::Client;
-use async_openai::config::OpenAIConfig;
 use crossterm::event::KeyModifiers;
 use crossterm::{
     event::{
@@ -33,9 +29,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Paragraph, Wrap},
 };
-use std::sync::Arc;
-use tokio::sync::oneshot;
-use tokio::sync::oneshot::error::TryRecvError;
+use tokio::sync::mpsc;
 
 const MINUTES_PER_DAY: f64 = 24.0 * 60.0;
 const FLASH_SECS: f64 = 2.0;
@@ -49,7 +43,7 @@ pub async fn run(
     rephrase_questions: bool,
 ) -> Result<()> {
     let (hash_cards, _) = register_all_cards(db, paths).await?;
-    let mut cards_due_today = db
+    let cards_due_today = db
         .due_today(&hash_cards, card_limit, new_card_limit)
         .await?;
 
@@ -59,63 +53,25 @@ pub async fn run(
     }
 
     let drill_preprocessor = DrillPreprocessor::new(&cards_due_today, rephrase_questions)?;
-    // let pending_cards = if remaining_cards.is_empty() {
-    //     None
-    // } else {
-    //     Some(spawn_background_preprocess(
-    //         remaining_cards,
-    //         rephrase_questions,
-    //         rephrase_client,
-    //         cloze_client,
-    //     ))
-    // };
-    //
-    start_drill_session(db, cards_due_today, drill_preprocessor).await?;
+    let ai_flags: Vec<bool> = cards_due_today
+        .iter()
+        .map(|card| card_needs_ai(card, rephrase_questions))
+        .collect();
+    start_drill_session(db, cards_due_today, drill_preprocessor, ai_flags).await?;
 
     Ok(())
 }
 
-async fn preprocess_cards_with_clients(
-    cards: &mut [Card],
-    rephrase_questions: bool,
-    rephrase_client: Option<Arc<Client<OpenAIConfig>>>,
-    cloze_client: Option<Arc<Client<OpenAIConfig>>>,
-) -> Result<()> {
-    if rephrase_questions && let Some(client) = rephrase_client {
-        rephrase_basic_questions_with_client(cards, client).await?;
-    }
-    if let Some(client) = cloze_client {
-        resolve_missing_clozes_with_client(cards, client).await?;
-    }
-    Ok(())
-}
-
-fn spawn_background_preprocess(
-    cards: Vec<Card>,
-    rephrase_questions: bool,
-    rephrase_client: Option<Arc<Client<OpenAIConfig>>>,
-    cloze_client: Option<Arc<Client<OpenAIConfig>>>,
-) -> oneshot::Receiver<Result<Vec<Card>>> {
-    let (tx, rx) = oneshot::channel();
-    tokio::spawn(async move {
-        let mut cards = cards;
-        let result = preprocess_cards_with_clients(
-            &mut cards,
-            rephrase_questions,
-            rephrase_client,
-            cloze_client,
-        )
-        .await
-        .map(|_| cards);
-        let _ = tx.send(result);
-    });
-    rx
+#[derive(Clone, Debug)]
+struct DrillCard {
+    card: Card,
+    ai_pending: bool,
 }
 
 struct DrillState<'a> {
     db: &'a DB,
-    cards: Vec<Card>,
-    redo_cards: Vec<Card>,
+    cards: Vec<DrillCard>,
+    redo_cards: Vec<DrillCard>,
     current_idx: usize,
     show_answer: bool,
     last_action: Option<LastAction>,
@@ -145,7 +101,12 @@ impl LastAction {
 }
 
 impl<'a> DrillState<'a> {
-    fn new(db: &'a DB, cards: Vec<Card>) -> Self {
+    fn new(db: &'a DB, cards: Vec<Card>, ai_flags: Vec<bool>) -> Self {
+        let cards = cards
+            .into_iter()
+            .zip(ai_flags)
+            .map(|(card, ai_pending)| DrillCard { card, ai_pending })
+            .collect();
         Self {
             db,
             cards,
@@ -157,7 +118,7 @@ impl<'a> DrillState<'a> {
         }
     }
 
-    fn current_card(&mut self) -> Option<Card> {
+    fn current_card(&mut self) -> Option<DrillCard> {
         if self.current_idx >= self.cards.len() {
             if self.redo_cards.is_empty() {
                 return None;
@@ -178,7 +139,7 @@ impl<'a> DrillState<'a> {
             .expect("card should exist when handling review");
         let show_again_duration = self
             .db
-            .update_card_performance(&current_card, action, None)
+            .update_card_performance(&current_card.card, action, None)
             .await?;
         if action == ReviewStatus::Fail
             || show_again_duration
@@ -200,12 +161,35 @@ impl<'a> DrillState<'a> {
     fn is_complete(&self) -> bool {
         self.current_idx >= self.cards.len() && self.redo_cards.is_empty()
     }
+
+    fn apply_ai_update(&mut self, update: AiUpdate) {
+        for entry in self.cards.iter_mut().chain(self.redo_cards.iter_mut()) {
+            if entry.card.card_hash == update.card_hash {
+                entry.card = update.card.clone();
+                entry.ai_pending = false;
+            }
+        }
+    }
+
+    fn current_ai_pending(&self) -> bool {
+        self.cards
+            .get(self.current_idx)
+            .map(|entry| entry.ai_pending)
+            .unwrap_or(false)
+    }
+}
+
+#[derive(Clone, Debug)]
+struct AiUpdate {
+    card_hash: String,
+    card: Card,
 }
 
 async fn start_drill_session(
     db: &DB,
     cards: Vec<Card>,
     drill_preprocessor: DrillPreprocessor,
+    ai_flags: Vec<bool>,
 ) -> Result<()> {
     enable_raw_mode().context("failed to enable raw mode")?;
     let mut stdout = io::stdout();
@@ -222,19 +206,32 @@ async fn start_drill_session(
     let mut terminal = Terminal::new(backend).context("failed to start terminal")?;
     terminal.hide_cursor().context("failed to hide cursor")?;
 
-    let mut state = DrillState::new(db, cards);
+    let (ai_updates_tx, mut ai_updates_rx) = mpsc::unbounded_channel();
+    if drill_preprocessor.llm_required() {
+        let ai_cards = cards.clone();
+        let ai_flags = ai_flags.clone();
+        tokio::spawn(async move {
+            preprocess_cards_in_order(drill_preprocessor, ai_cards, ai_flags, ai_updates_tx).await;
+        });
+    }
+
+    let mut state = DrillState::new(db, cards, ai_flags);
 
     let loop_result: Result<()> = async {
         loop {
-            ingest_pending_cards(&mut state)?;
-            let waiting_for_cards = is_waiting_for_cards(&state, &pending_cards);
-
-            if state.is_complete() && !waiting_for_cards {
+            if state.is_complete() {
                 break Ok(());
+            }
+
+            while let Ok(update) = ai_updates_rx.try_recv() {
+                state.apply_ai_update(update);
             }
 
             terminal
                 .draw(|frame| {
+                    let card = state
+                        .current_card()
+                        .expect("card should exist while session is active");
                     let area = frame.area();
                     frame.render_widget(Theme::backdrop(), area);
                     let chunks = Layout::default()
@@ -242,52 +239,41 @@ async fn start_drill_session(
                         .constraints([Constraint::Min(5), Constraint::Length(5)])
                         .split(area);
 
-                    if waiting_for_cards {
-                        let header = Line::from(vec![
-                            Theme::label_span("Preparing more cards"),
-                            Theme::bullet(),
-                            Theme::span(format!("{} coming again", state.redo_cards.len())),
-                        ]);
-                        let body = render_markdown("Fetching more LLM cards in the background...");
-                        let card_widget = Paragraph::new(body)
-                            .block(Theme::panel_with_line(header))
-                            .wrap(Wrap { trim: false });
-                        frame.render_widget(card_widget, chunks[0]);
+                    let header_line = Line::from(vec![
+                        Theme::label_span(format!(
+                            "Card {}/{}",
+                            state.current_idx + 1,
+                            state.cards.len()
+                        )),
+                        Theme::bullet(),
+                        Theme::span(format!("{} coming again", state.redo_cards.len())),
+                        Theme::bullet(),
+                        Theme::span(card.card.file_path.display().to_string()),
+                    ]);
 
-                        let instructions = waiting_instructions_text();
-                        let footer = Paragraph::new(instructions)
-                            .block(Theme::panel_with_line(Theme::section_header("Controls")));
-                        frame.render_widget(footer, chunks[1]);
+                    let ai_pending = state.current_ai_pending();
+                    let content = if ai_pending {
+                        "Enhancing this card with AI...\n\nPlease wait.".to_string()
                     } else {
-                        let card = state
-                            .current_card()
-                            .expect("card should exist while session is active");
-                        let header_line = Line::from(vec![
-                            Theme::label_span(format!(
-                                "Card {}/{}",
-                                state.current_idx + 1,
-                                state.cards.len()
-                            )),
-                            Theme::bullet(),
-                            Theme::span(format!("{} coming again", state.redo_cards.len())),
-                            Theme::bullet(),
-                            Theme::span(card.file_path.display().to_string()),
-                        ]);
-
-                        let content = format_card_text(&card, state.show_answer);
-                        let markdown = render_markdown(&content);
-                        state.current_medias = extract_media(&content, card.file_path.parent());
-
-                        let card_widget = Paragraph::new(markdown)
-                            .block(Theme::panel_with_line(header_line))
-                            .wrap(Wrap { trim: false });
-                        frame.render_widget(card_widget, chunks[0]);
-
-                        let instructions = instructions_text(&state);
-                        let footer = Paragraph::new(instructions)
-                            .block(Theme::panel_with_line(Theme::section_header("Controls")));
-                        frame.render_widget(footer, chunks[1]);
+                        format_card_text(&card.card, state.show_answer)
+                    };
+                    let markdown = render_markdown(&content);
+                    if ai_pending {
+                        state.current_medias.clear();
+                    } else {
+                        state.current_medias =
+                            extract_media(&content, card.card.file_path.parent());
                     }
+
+                    let card_widget = Paragraph::new(markdown)
+                        .block(Theme::panel_with_line(header_line))
+                        .wrap(Wrap { trim: false });
+                    frame.render_widget(card_widget, chunks[0]);
+
+                    let instructions = instructions_text(&state);
+                    let footer = Paragraph::new(instructions)
+                        .block(Theme::panel_with_line(Theme::section_header("Controls")));
+                    frame.render_widget(footer, chunks[1]);
                 })
                 .context("failed to render frame")?;
 
@@ -304,26 +290,27 @@ async fn start_drill_session(
                 {
                     break Ok(());
                 }
-                if !waiting_for_cards {
-                    match key.code {
-                        KeyCode::Char(' ') | KeyCode::Enter => {
-                            if !state.show_answer {
-                                state.reveal_answer();
-                            } else {
-                                state.handle_review(ReviewStatus::Pass).await?;
-                            }
+                let ai_pending = state.current_ai_pending();
+                match key.code {
+                    KeyCode::Char(' ') | KeyCode::Enter if !ai_pending => {
+                        if !state.show_answer {
+                            state.reveal_answer();
+                        } else {
+                            state.handle_review(ReviewStatus::Pass).await?;
                         }
-                        KeyCode::Char('F') | KeyCode::Char('f') if state.show_answer => {
-                            state.handle_review(ReviewStatus::Fail).await?;
-                        }
-                        KeyCode::Char('O') | KeyCode::Char('o')
-                            if !state.show_answer && !state.current_medias.is_empty() =>
-                        {
-                            state.current_medias[0].play()?;
-                        }
-
-                        _ => {}
                     }
+                    KeyCode::Char('F') | KeyCode::Char('f') if state.show_answer && !ai_pending => {
+                        state.handle_review(ReviewStatus::Fail).await?;
+                    }
+                    KeyCode::Char('O') | KeyCode::Char('o')
+                        if !ai_pending
+                            && !state.show_answer
+                            && !state.current_medias.is_empty() =>
+                    {
+                        state.current_medias[0].play()?;
+                    }
+
+                    _ => {}
                 }
             }
         }
@@ -342,38 +329,18 @@ async fn start_drill_session(
     loop_result
 }
 
-fn ingest_pending_cards(state: &mut DrillState<'_>) -> Result<()> {
-    let Some(receiver) = pending_cards.as_mut() else {
-        return Ok(());
-    };
-
-    match receiver.try_recv() {
-        Ok(Ok(mut new_cards)) => {
-            state.cards.append(&mut new_cards);
-            *pending_cards = None;
-        }
-        Ok(Err(err)) => {
-            *pending_cards = None;
-            return Err(err);
-        }
-        Err(TryRecvError::Empty) => {}
-        Err(TryRecvError::Closed) => {
-            *pending_cards = None;
-        }
-    }
-    Ok(())
-}
-
-fn is_waiting_for_cards(
-    state: &DrillState<'_>,
-    pending_cards: &Option<oneshot::Receiver<Result<Vec<Card>>>>,
-) -> bool {
-    pending_cards.is_some() && state.current_idx >= state.cards.len() && state.redo_cards.is_empty()
-}
-
 fn instructions_text(state: &DrillState<'_>) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
-    if state.show_answer {
+    if state.current_ai_pending() {
+        lines.push(Line::from(vec![
+            Theme::span("Enhancing card with AI"),
+            Theme::bullet(),
+            Theme::key_chip("Esc"),
+            Theme::span(" / "),
+            Theme::key_chip("Ctrl+C"),
+            Theme::span(" exit"),
+        ]));
+    } else if state.show_answer {
         lines.push(Line::from(vec![
             Theme::key_chip("Space"),
             Theme::span(" or "),
@@ -430,15 +397,6 @@ fn instructions_text(state: &DrillState<'_>) -> Vec<Line<'static>> {
     lines
 }
 
-fn waiting_instructions_text() -> Vec<Line<'static>> {
-    vec![Line::from(vec![
-        Theme::key_chip("Esc"),
-        Theme::span(" / "),
-        Theme::key_chip("Ctrl+C"),
-        Theme::span(" exit"),
-    ])]
-}
-
 fn format_card_text(card: &Card, show_answer: bool) -> String {
     match &card.content {
         CardContent::Basic { question, answer } => {
@@ -455,6 +413,46 @@ fn format_card_text(card: &Card, show_answer: bool) -> String {
             };
             format!("C:\n{}", body)
         }
+    }
+}
+
+fn card_needs_ai(card: &Card, rephrase_questions: bool) -> bool {
+    match &card.content {
+        CardContent::Basic { .. } => rephrase_questions,
+        CardContent::Cloze {
+            cloze_range: None, ..
+        } => true,
+        CardContent::Cloze {
+            cloze_range: Some(_),
+            ..
+        } => false,
+    }
+}
+
+async fn preprocess_cards_in_order(
+    drill_preprocessor: DrillPreprocessor,
+    cards: Vec<Card>,
+    ai_flags: Vec<bool>,
+    updates: mpsc::UnboundedSender<AiUpdate>,
+) {
+    for (card, needs_ai) in cards.into_iter().zip(ai_flags) {
+        if !needs_ai {
+            continue;
+        }
+
+        let mut updated_card = card.clone();
+        if drill_preprocessor
+            .preprocess_cards(std::slice::from_mut(&mut updated_card))
+            .await
+            .is_err()
+        {
+            updated_card = card;
+        }
+
+        let _ = updates.send(AiUpdate {
+            card_hash: updated_card.card_hash.clone(),
+            card: updated_card,
+        });
     }
 }
 
@@ -552,7 +550,7 @@ mod tests {
     #[test]
     fn instructions_note_media_shortcut_before_reveal() {
         let db = in_memory_db();
-        let mut state = DrillState::new(&db, vec![basic_card("Q", "A")]);
+        let mut state = DrillState::new(&db, vec![basic_card("Q", "A")], vec![false]);
         state.current_medias = extract_media("[audio](clip.mp3)", None);
 
         let lines = instructions_text(&state);
@@ -565,7 +563,7 @@ mod tests {
     #[test]
     fn instructions_show_answer_branch_includes_pass_and_fail() {
         let db = in_memory_db();
-        let mut state = DrillState::new(&db, vec![basic_card("Q", "A")]);
+        let mut state = DrillState::new(&db, vec![basic_card("Q", "A")], vec![false]);
         state.show_answer = true;
 
         let lines = instructions_text(&state);
@@ -578,7 +576,7 @@ mod tests {
     #[test]
     fn recent_last_action_is_displayed_in_instructions() {
         let db = in_memory_db();
-        let mut state = DrillState::new(&db, vec![basic_card("Q", "A")]);
+        let mut state = DrillState::new(&db, vec![basic_card("Q", "A")], vec![false]);
         state.show_answer = true;
         state.last_action = Some(LastAction {
             action: ReviewStatus::Fail,
