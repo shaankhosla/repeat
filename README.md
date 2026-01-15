@@ -40,7 +40,7 @@ In practice, this means less flexibility but much less friction. You edit cards 
 - **Media support**: open linked images/audio/video.
 - **Anki import**: import your existing Anki decks `.apkg` to Markdown.
 - **Stable card identity**: “meaning-only” hashing; formatting tweaks don’t reset progress.
-- **Optional LLM helper**: add an OpenAI key once and missing Cloze brackets are auto-suggested before drills.
+- **Optional LLM helper**: add an OpenAI key once to auto-suggest missing Cloze brackets and optionally rephrase basic questions (see the [docs](https://shaankhosla.github.io/repeater/llm-usage.html)).
 
 
 ## Quick Start

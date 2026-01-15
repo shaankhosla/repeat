@@ -12,6 +12,9 @@
 - `repeater llm --test` confirms the key with OpenAI, `repeater llm --clear` forgets it instantly.
 
 ## Cloze generation
-- Run `repeater drill <deck>`; if any `C:` cards lack `[]`, you’ll be asked whether to send that text to OpenAI (`gpt-5-nano`).
-- Choosing “yes” streams the card text, gets a single suggested deletion, and patches the file before the drill continues.
-- Choosing “no” keeps the cards untouched and the feature idle.
+- Run `repeater drill <deck>`; if any `C:` cards lack `[]`, `repeater` sends that text to OpenAI (`gpt-5-nano`) and patches the file before the drill continues.
+- Leave the API key prompt blank (or skip configuring a key) to keep the feature idle.
+
+## Question rephrasing
+- Run `repeater drill <deck> --rephrase` to rephrase basic `Q:` questions before the session starts.
+- The original answers are provided as context but are not revealed in the rewritten questions.

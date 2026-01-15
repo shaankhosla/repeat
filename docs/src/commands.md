@@ -6,6 +6,7 @@ Start a terminal drilling session for one or more files/directories (default: cu
 
 - `--card-limit <N>`: cap the number of cards reviewed this session.
 - `--new-card-limit <N>`: cap the number of unseen cards introduced.
+- `--rephrase`: rephrase basic questions via the LLM helper before the session starts.
 
 Example: drill all the physics decks and a single chemistry deck, stopping after 20 cards.
 
@@ -58,7 +59,7 @@ repeater import ~/Downloads/my_collection.apkg cards/anki
 
 ### `repeater llm [--set|--clear|--test]`
 
-Manage the optional OpenAI helper that can auto-cloze cards missing brackets before a drill.
+Manage the optional OpenAI helper that can auto-cloze missing brackets and rephrase questions before a drill.
 
 - `--set <KEY>`: write the key to the local keyring (`com.repeater/openai:default`).
 - `--test`: verify the configured key by calling OpenAI.
