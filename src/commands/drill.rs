@@ -7,9 +7,9 @@ use crate::cloze_utils::mask_cloze_text;
 use crate::crud::DB;
 use crate::fsrs::{LEARN_AHEAD_THRESHOLD_MINS, ReviewStatus};
 use crate::llm::drill_preprocessor::{AIStatus, DrillPreprocessor};
-use crate::parser::Media;
 use crate::parser::register_all_cards;
 use crate::parser::render_markdown;
+use crate::parser::{Media, extract_media};
 use crate::tui::Theme;
 
 use anyhow::{Context, Result};
@@ -215,7 +215,7 @@ async fn start_drill_session(
 
             terminal
                 .draw(|frame| {
-                    let mut card = state
+                    let card = state
                         .current_card()
                         .expect("card should exist while session is active");
                     let area = frame.area();
@@ -225,7 +225,7 @@ async fn start_drill_session(
                         .constraints([Constraint::Min(5), Constraint::Length(5)])
                         .split(area);
 
-                    let header_line = Line::from(vec![
+                    let mut header_vec = vec![
                         Theme::label_span(format!(
                             "Card {}/{}",
                             state.current_idx + 1,
@@ -235,7 +235,12 @@ async fn start_drill_session(
                         Theme::span(format!("{} coming again", state.redo_cards.len())),
                         Theme::bullet(),
                         Theme::span(card.file_path.display().to_string()),
-                    ]);
+                    ];
+                    if card.ai_status == AIStatus::AiEnhanced {
+                        header_vec.push(Theme::bullet());
+                        header_vec.push(Theme::key_chip("AI enhanced"));
+                    }
+                    let header_line = Line::from(header_vec);
 
                     let ai_pending = state.current_ai_pending();
                     let content = if ai_pending {
@@ -244,7 +249,7 @@ async fn start_drill_session(
                         format_card_text(&card, state.show_answer)
                     };
                     let markdown = render_markdown(&content);
-                    state.current_medias = card.parse_media().clone();
+                    state.current_medias = extract_media(&content, card.file_path.parent());
 
                     let card_widget = Paragraph::new(markdown)
                         .block(Theme::panel_with_line(header_line))

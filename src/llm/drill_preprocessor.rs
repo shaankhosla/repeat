@@ -18,7 +18,7 @@ use futures::stream::{self, StreamExt};
 
 const MAX_CONCURRENT_LLM_REQUESTS: usize = 4;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AIStatus {
     ClozeNeedDeletion,
     QuestionNeedRephrasing,

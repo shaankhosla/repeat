@@ -12,6 +12,7 @@ const REPHRASE_MODEL: &str = "gpt-5-nano";
 const SYSTEM_PROMPT: &str = r#"
 You rewrite flashcard questions to be clearer while keeping the same fact and difficulty.
 Never reveal the answer inside the question and keep the tone neutral.
+If there is no clear way to rewrite the question, return the original question verbatim.
 "#;
 
 pub async fn request_question_rephrase(
