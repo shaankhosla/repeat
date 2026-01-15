@@ -33,7 +33,6 @@ use tokio::sync::mpsc;
 
 const MINUTES_PER_DAY: f64 = 24.0 * 60.0;
 const FLASH_SECS: f64 = 2.0;
-pub const INITIAL_PREFETCH_CARDS: usize = 5;
 
 pub async fn run(
     db: &DB,
