@@ -102,7 +102,7 @@ async fn load_metadata(
     let decks = parse_decks(&decks_raw)?;
     let models = parse_models(&models_raw)?;
     println!(
-        "Found {} decks and {} models in DB schema",
+        "{} decks and {} models in DB schema",
         Palette::paint(Palette::WARNING, decks.len()),
         Palette::paint(Palette::WARNING, models.len())
     );
@@ -179,7 +179,7 @@ async fn load_cards(pool: &SqlitePool) -> Result<Vec<CardRecord>> {
         cards.push(card);
     }
     println!(
-        "Found {} cards in DB",
+        "{} cards in DB",
         Palette::paint(Palette::WARNING, cards.len())
     );
     Ok(cards)
@@ -193,6 +193,7 @@ fn build_exports(
     let mut num_duplicates = 0;
     let mut content_hashes: HashSet<String> = HashSet::new();
 
+    let mut unexportable = 0;
     for card in cards {
         let Some(model) = models.get(&card.model_id) else {
             println!(
@@ -207,9 +208,11 @@ fn build_exports(
         };
 
         let Some(content) = entry else {
+            unexportable += 1;
             continue;
         };
         let Some(content_hash) = get_hash(&content) else {
+            unexportable += 1;
             continue;
         };
         if !content_hashes.insert(content_hash) {
@@ -219,8 +222,12 @@ fn build_exports(
         per_deck.entry(card.deck_id).or_default().push(content);
     }
     println!(
-        "Found {} duplicates",
+        "Removing {} duplicates",
         Palette::paint(Palette::WARNING, num_duplicates)
+    );
+    println!(
+        "{} unexportable cards",
+        Palette::paint(Palette::WARNING, unexportable)
     );
     per_deck
 }
@@ -412,5 +419,29 @@ mod tests {
             vec!["Data Science".to_string(), "-ETL--".to_string()]
         );
         assert_eq!(deck_components(""), vec!["Deck".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_with_apkg() {
+        let test_file =
+            PathBuf::from("test_data/United_Kingdom_UK_Geography_Regions_Counties_and_Cities.apkg");
+        let db_path = extract_collection_db(&test_file).unwrap();
+        dbg!(&db_path);
+
+        let db_url = format!("sqlite://{}", db_path.path().display());
+
+        let export_db = SqlitePool::connect(&db_url)
+            .await
+            .context("failed to connect to Anki database")
+            .unwrap();
+
+        let (decks, models) = load_metadata(&export_db).await.unwrap();
+        assert_eq!(decks.len(), 2);
+        assert_eq!(models.len(), 2);
+        let cards = load_cards(&export_db).await.unwrap();
+        assert_eq!(cards.len(), 545);
+        let exports = build_exports(cards, &models);
+        let len = exports.values().next().map(|v: &Vec<String>| v.len());
+        assert_eq!(len, Some(320));
     }
 }
