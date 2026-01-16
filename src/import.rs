@@ -33,7 +33,7 @@ enum ModelKind {
 struct CardRecord {
     deck_id: i64,
     model_id: i64,
-    ord: i64,
+    card_order: i64,
     fields: Vec<String>,
 }
 
@@ -70,9 +70,15 @@ fn extract_collection_db(apkg: &Path) -> Result<NamedTempFile> {
 
     let mut zip = ZipArchive::new(file).context("failed to read apkg as zip archive")?;
 
-    let mut entry = zip
-        .by_name("collection.anki21")
-        .context("apkg does not contain collection.anki21, the newer export format DB")?;
+    let mut entry = {
+        if let Ok(e) = zip.by_name("collection.anki21") {
+            e
+        } else {
+            zip.by_name("collection.anki2").context(
+                "apkg does not contain the newer collection.anki21 or the older collection.anki2",
+            )?
+        }
+    };
 
     let mut temp =
         NamedTempFile::new().context("failed to create temporary file for sqlite database")?;
@@ -93,9 +99,15 @@ async fn load_metadata(
     let models_raw: String = row.try_get("models")?;
     let decks = parse_decks(&decks_raw)?;
     let models = parse_models(&models_raw)?;
+    println!(
+        "Found {} decks and {} models in DB schema",
+        decks.len(),
+        models.len()
+    );
     Ok((decks, models))
 }
 
+// {"1736956380790":{"id":1736956380790,"mod":1738946904,"name":"Data Science::metrics","usn":-1,"lrnToday":[23,0],"revToday":[23,4],"newToday":[23,0],"timeToday":[23,79178],"collapsed":false,"browserCollapsed":false,"desc":"","dyn":0,"conf":1,"extendNew":0,"extendRev":0,"reviewLimit":null,"newLimit":null,"reviewLimitToday":null,"newLimitToday":null},"1736956380787":{"id":1736956380787,"mod":1738460183,"name":"Data Science::stats","usn":-1,"lrnToday":[17,0],"revToday":[17,5],"newToday":[17,0],"timeToday":[17,56853],"collapsed":false,"browserCollapsed":false,"desc":"","dyn":0,"conf":1,"extendNew":0,"extendRev":0,"reviewLimit":null,"newLimit":null,"reviewLimitToday":null,"newLimitToday":null},"1736956380788":{"id":1736956380788,"mod":1738946986,"name":"Data Science::supervised","usn":-1,"lrnToday":[23,0],"revToday":[23,5],"newToday":[23,0],"timeToday":[23,58570],"collapsed":false,"browserCollapsed":false,"desc":"","dyn":0,"conf":1,"extendNew":0,"extendRev":0,"reviewLimit":null,"newLimit":null,"reviewLimitToday":null,"newLimitToday":null},"1736956380789":{"id":1736956380789,"mod":1767018023,"name":"Data Science::clustering","usn":-1,"lrnToday":[348,0],"revToday":[348,2],"newToday":[348,0],"timeToday":[348,17276],"collapsed":false,"browserCollapsed":false,"desc":"","dyn":0,"conf":1,"extendNew":0,"extendRev":0,"reviewLimit":null,"newLimit":null,"reviewLimitToday":null,"newLimitToday":null},"1736956380791":{"id":1736956380791,"mod":1738946978,"name":"Data Science::linear-algebra","usn":-1,"lrnToday":[23,0],"revToday":[23,3],"newToday":[23,0],"timeToday":[23,37053],"collapsed":false,"browserCollapsed":false,"desc":"","dyn":0,"conf":1,"extendNew":0,"extendRev":0,"reviewLimit":null,"newLimit":null,"reviewLimitToday":null,"newLimitToday":null},"1736956380792":{"id":1736956380792,"mod":1738946547,"name":"Data Science::feature-engineering","usn":-1,"lrnToday":[23,0],"revToday":[23,0],"newToday":[23,0],"timeToday":[23,29170],"collapsed":false,"browserCollapsed":false,"desc":"","dyn":0,"conf":1,"extendNew":0,"extendRev":0,"reviewLimit":null,"newLimit":null,"reviewLimitToday":null,"newLimitToday":null},"1736956380786":{"id":1736956380786,"mod":1767018023,"name":"Data Science","usn":-1,"lrnToday":[348,0],"revToday":[348,2],"newToday":[348,0],"timeToday":[348,17276],"collapsed":false,"browserCollapsed":false,"desc":"Please see the <a href='https://ankiweb.net/shared/info/1443276573'>shared deck page</a> for more info.","dyn":0,"conf":1,"extendNew":0,"extendRev":0,"reviewLimit":null,"newLimit":null,"reviewLimitToday":null,"newLimitToday":null},"1":{"id":1,"mod":0,"name":"Default","usn":0,"lrnToday":[0,0],"revToday":[0,0],"newToday":[0,0],"timeToday":[0,0],"collapsed":true,"browserCollapsed":true,"desc":"","dyn":0,"conf":1,"extendNew":0,"extendRev":0,"reviewLimit":null,"newLimit":null,"reviewLimitToday":null,"newLimitToday":null}}
 fn parse_decks(json: &str) -> Result<HashMap<i64, DeckInfo>> {
     let value: Value = serde_json::from_str(json).context("failed to parse decks json")?;
     let mut decks = HashMap::new();
@@ -117,6 +129,7 @@ fn parse_decks(json: &str) -> Result<HashMap<i64, DeckInfo>> {
     Ok(decks)
 }
 
+// {"1736956091574":{"id":1736956091574,"name":"Basic","type":0,"mod":0,"usn":0,"sortf":0,"did":null,"tmpls":[{"name":"Card 1","ord":0,"qfmt":"{{Front}}","afmt":"{{FrontSide}}\n\n<hr id=answer>\n\n{{Back}}","bqfmt":"","bafmt":"","did":null,"bfont":"","bsize":0,"id":-7582984624314878559}],"flds":[{"name":"Front","ord":0,"sticky":false,"rtl":false,"font":"Arial","size":20,"description":"","plainText":false,"collapsed":false,"excludeFromSearch":false,"id":9187657064927433214,"tag":null,"preventDeletion":false},{"name":"Back","ord":1,"sticky":false,"rtl":false,"font":"Arial","size":20,"description":"","plainText":false,"collapsed":false,"excludeFromSearch":false,"id":7126803600113827766,"tag":null,"preventDeletion":false}],"css":".card {\n    font-family: arial;\n    font-size: 20px;\n    text-align: center;\n    color: black;\n    background-color: white;\n}\n","latexPre":"\\documentclass[12pt]{article}\n\\special{papersize=3in,5in}\n\\usepackage[utf8]{inputenc}\n\\usepackage{amssymb,amsmath}\n\\pagestyle{empty}\n\\setlength{\\parindent}{0in}\n\\begin{document}\n","latexPost":"\\end{document}","latexsvg":false,"req":[[0,"any",[0]]],"originalStockKind":1},"1493859779912":{"id":1493859779912,"name":"Basic-DataSci","type":0,"mod":1601179117,"usn":-1,"sortf":0,"did":1535429881193,"tmpls":[{"name":"Card 1","ord":0,"qfmt":"{{Front}}","afmt":"{{FrontSide}}\n\n<hr id=answer>\n\n{{Back}}\n\n{{#Ref}}\n<br/>\n<a href=\"{{text:Ref}}\">Ref</a>\n{{/Ref}}","bqfmt":"","bafmt":"","did":null,"bfont":"","bsize":0,"id":null}],"flds":[{"name":"Front","ord":0,"sticky":false,"rtl":false,"font":"Liberation Sans","size":20,"description":"","plainText":false,"collapsed":false,"excludeFromSearch":false,"id":null,"tag":null,"preventDeletion":false,"media":[]},{"name":"Back","ord":1,"sticky":false,"rtl":false,"font":"Arial","size":20,"description":"","plainText":false,"collapsed":false,"excludeFromSearch":false,"id":null,"tag":null,"preventDeletion":false,"media":[]},{"name":"Ref","ord":2,"sticky":false,"rtl":false,"font":"Liberation Sans","size":20,"description":"","plainText":false,"collapsed":false,"excludeFromSearch":false,"id":null,"tag":null,"preventDeletion":false,"media":[]},{"name":"Credit","ord":3,"sticky":false,"rtl":false,"font":"Liberation Sans","size":20,"description":"","plainText":false,"collapsed":false,"excludeFromSearch":false,"id":null,"tag":null,"preventDeletion":false,"media":[]}],"css":".card {\n font-family: arial;\n font-size: 20px;\n text-align: center;\n color: black;\n background-color: white;\n}\n","latexPre":"\\documentclass[12pt]{article}\n\\special{papersize=3in,5in}\n\\usepackage[utf8]{inputenc}\n\\usepackage{amssymb,amsmath}\n\\pagestyle{empty}\n\\setlength{\\parindent}{0in}\n\\begin{document}\n","latexPost":"\\end{document}","latexsvg":false,"req":[[0,"any",[0]]],"originalId":1493859779912,"prewrap":false,"tags":["low-level"],"vers":[]}}
 fn parse_models(json: &str) -> Result<HashMap<i64, ModelKind>> {
     let value: Value = serde_json::from_str(json).context("failed to parse models json")?;
     let mut models = HashMap::new();
@@ -138,10 +151,10 @@ async fn load_cards(pool: &SqlitePool) -> Result<Vec<CardRecord>> {
     let rows = sqlx::query(
         r#"
         SELECT
-            cards.did as did,
-            cards.ord as ord,
-            notes.mid as mid,
-            notes.flds as flds
+            cards.did  AS did,  -- deck id
+            cards.ord  AS ord,  -- card order (template ordinal)
+            notes.mid  AS mid,  -- model (note type) id
+            notes.flds AS flds  -- packed field values
         FROM cards
         JOIN notes ON notes.id = cards.nid
         ORDER BY cards.did, notes.id, cards.ord
@@ -152,7 +165,7 @@ async fn load_cards(pool: &SqlitePool) -> Result<Vec<CardRecord>> {
     let mut cards = Vec::with_capacity(rows.len());
     for row in rows {
         let deck_id: i64 = row.try_get("did")?;
-        let ord: i64 = row.try_get("ord")?;
+        let card_order: i64 = row.try_get("ord")?;
         let model_id: i64 = row.try_get("mid")?;
 
         //"Examples of supervised methods with built-in feature selection\u{1f}Decision trees<br><div>LASSO (linear regression with L1 regularization)</div>\u{1f}<a href=\"https://machinelearningmastery.com/feature-selection-with-real-and-categorical-data/\">https://machinelearningmastery.com/feature-selection-with-real-and-categorical-data/</a>\u{1f}"
@@ -160,11 +173,12 @@ async fn load_cards(pool: &SqlitePool) -> Result<Vec<CardRecord>> {
         let card = CardRecord {
             deck_id,
             model_id,
-            ord,
+            card_order,
             fields: split_fields(&fields_raw),
         };
         cards.push(card);
     }
+    println!("Found {} cards in DB", cards.len());
     Ok(cards)
 }
 
@@ -175,10 +189,11 @@ fn build_exports(
     let mut per_deck: HashMap<i64, Vec<String>> = HashMap::new();
     for card in cards {
         let Some(model) = models.get(&card.model_id) else {
+            println!("Card with an unknown model id found: {}", card.model_id);
             continue;
         };
         let entry = match model {
-            ModelKind::Basic => basic_entry(&card.fields, card.ord),
+            ModelKind::Basic => basic_entry(&card.fields, card.card_order),
             ModelKind::Cloze => cloze_entry(&card.fields),
         };
         if let Some(content) = entry {
@@ -193,10 +208,19 @@ fn write_exports(
     decks: &HashMap<i64, DeckInfo>,
     exports: HashMap<i64, Vec<String>>,
 ) -> Result<()> {
+    for deck_id in decks.keys() {
+        let exports_per_deck = exports.get(deck_id).map(|v| v.len()).unwrap_or(0);
+        println!(
+            "Deck {} has {} cards",
+            decks.get(deck_id).unwrap().name,
+            exports_per_deck
+        );
+    }
     let mut entries: Vec<(i64, Vec<String>)> = exports
         .into_iter()
         .filter(|(_, cards)| !cards.is_empty())
         .collect();
+    println!("There are {} decks with atleast one card", entries.len());
     entries.sort_by(|(a, _), (b, _)| {
         let name_a = decks.get(a).map(|d| d.name.as_str()).unwrap_or("");
         let name_b = decks.get(b).map(|d| d.name.as_str()).unwrap_or("");
@@ -222,9 +246,10 @@ fn write_exports(
             fs::create_dir_all(parent)?;
         }
         let mut content = String::new();
-        for card in cards {
-            content.push_str(&card);
+        for card in &cards {
+            content.push_str(card);
         }
+        println!("Writing {} cards to '{}'", cards.len(), path.display());
         fs::write(&path, content)?;
     }
     Ok(())
@@ -261,7 +286,7 @@ fn deck_components(name: &str) -> Vec<String> {
 }
 
 fn sanitize_component(input: &str) -> String {
-    let trimmed = input.trim();
+    let trimmed = input.trim().trim_start_matches('.');
     if trimmed.is_empty() {
         return String::new();
     }
