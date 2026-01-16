@@ -359,7 +359,9 @@ fn render_fsrs_histogram(
 
 fn render_fsrs_panel(frame: &mut Frame<'_>, area: Rect, stats: &CardStats) {
     let block = Theme::panel_with_line(Theme::title_line("FSRS Memory Health"));
-    if stats.upcoming_week.is_empty() {
+    if stats.retrievability_histogram.mean().is_none()
+        || stats.difficulty_histogram.mean().is_none()
+    {
         let empty = Paragraph::new(vec![Line::from(vec![Theme::span(
             "No FSRS statistics to display",
         )])])
