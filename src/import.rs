@@ -3,7 +3,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::Value;
 use sqlx::{Row, SqlitePool};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
@@ -12,6 +12,8 @@ use zip::ZipArchive;
 use anyhow::{Context, Result, anyhow, bail};
 
 use crate::crud::DB;
+use crate::palette::Palette;
+use crate::parser::get_hash;
 
 static TAG_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?is)<[^>]+>").unwrap());
 static CLOZE_RE: Lazy<Regex> =
@@ -101,8 +103,8 @@ async fn load_metadata(
     let models = parse_models(&models_raw)?;
     println!(
         "Found {} decks and {} models in DB schema",
-        decks.len(),
-        models.len()
+        Palette::paint(Palette::WARNING, decks.len()),
+        Palette::paint(Palette::WARNING, models.len())
     );
     Ok((decks, models))
 }
@@ -178,7 +180,10 @@ async fn load_cards(pool: &SqlitePool) -> Result<Vec<CardRecord>> {
         };
         cards.push(card);
     }
-    println!("Found {} cards in DB", cards.len());
+    println!(
+        "Found {} cards in DB",
+        Palette::paint(Palette::WARNING, cards.len())
+    );
     Ok(cards)
 }
 
@@ -187,19 +192,38 @@ fn build_exports(
     models: &HashMap<i64, ModelKind>,
 ) -> HashMap<i64, Vec<String>> {
     let mut per_deck: HashMap<i64, Vec<String>> = HashMap::new();
+    let mut num_duplicates = 0;
+    let mut content_hashes: HashSet<String> = HashSet::new();
+
     for card in cards {
         let Some(model) = models.get(&card.model_id) else {
-            println!("Card with an unknown model id found: {}", card.model_id);
+            println!(
+                "Card with an unknown model id found: {}",
+                Palette::paint(Palette::DANGER, card.model_id)
+            );
             continue;
         };
         let entry = match model {
             ModelKind::Basic => basic_entry(&card.fields, card.card_order),
             ModelKind::Cloze => cloze_entry(&card.fields),
         };
-        if let Some(content) = entry {
-            per_deck.entry(card.deck_id).or_default().push(content);
+
+        let Some(content) = entry else {
+            continue;
+        };
+        let Some(content_hash) = get_hash(&content) else {
+            continue;
+        };
+        if !content_hashes.insert(content_hash) {
+            num_duplicates += 1;
+            continue;
         }
+        per_deck.entry(card.deck_id).or_default().push(content);
     }
+    println!(
+        "Found {} duplicates",
+        Palette::paint(Palette::WARNING, num_duplicates)
+    );
     per_deck
 }
 
@@ -212,15 +236,18 @@ fn write_exports(
         let exports_per_deck = exports.get(deck_id).map(|v| v.len()).unwrap_or(0);
         println!(
             "Deck {} has {} cards",
-            decks.get(deck_id).unwrap().name,
-            exports_per_deck
+            Palette::paint(Palette::ACCENT, decks.get(deck_id).unwrap().name.as_str()),
+            Palette::paint(Palette::WARNING, exports_per_deck)
         );
     }
     let mut entries: Vec<(i64, Vec<String>)> = exports
         .into_iter()
         .filter(|(_, cards)| !cards.is_empty())
         .collect();
-    println!("There are {} decks with atleast one card", entries.len());
+    println!(
+        "There are {} decks with at least one card",
+        Palette::paint(Palette::WARNING, entries.len())
+    );
     entries.sort_by(|(a, _), (b, _)| {
         let name_a = decks.get(a).map(|d| d.name.as_str()).unwrap_or("");
         let name_b = decks.get(b).map(|d| d.name.as_str()).unwrap_or("");
@@ -249,7 +276,11 @@ fn write_exports(
         for card in &cards {
             content.push_str(card);
         }
-        println!("Writing {} cards to '{}'", cards.len(), path.display());
+        println!(
+            "Writing {} cards to {}",
+            Palette::paint(Palette::WARNING, cards.len()),
+            Palette::paint(Palette::ACCENT, path.display())
+        );
         fs::write(&path, content)?;
     }
     Ok(())
