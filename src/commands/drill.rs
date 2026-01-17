@@ -194,12 +194,19 @@ async fn start_drill_session(
     terminal.hide_cursor().context("failed to hide cursor")?;
 
     let (ai_updates_tx, mut ai_updates_rx) = mpsc::unbounded_channel();
-    if drill_preprocessor.llm_required() {
+    let preprocess_result = if drill_preprocessor.llm_required() {
         let ai_cards = cards.clone();
         let handle = tokio::spawn(async move {
             preprocess_cards_in_order(drill_preprocessor, ai_cards, ai_updates_tx).await
         });
-        handle.await??;
+        handle.await?
+    } else {
+        Ok(())
+    };
+
+    if let Err(err) = preprocess_result {
+        let _ = teardown_terminal(&mut terminal);
+        return Err(err);
     }
 
     let mut state = DrillState::new(db, cards);
@@ -304,6 +311,14 @@ async fn start_drill_session(
     }
     .await;
 
+    teardown_terminal(&mut terminal)?;
+
+    loop_result
+}
+
+fn teardown_terminal(
+    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+) -> Result<()> {
     disable_raw_mode().context("failed to disable raw mode")?;
     execute!(
         terminal.backend_mut(),
@@ -312,8 +327,7 @@ async fn start_drill_session(
     )
     .context("failed to restore terminal")?;
     terminal.show_cursor().context("failed to show cursor")?;
-
-    loop_result
+    Ok(())
 }
 
 fn instructions_text(state: &DrillState<'_>) -> Vec<Line<'static>> {
