@@ -57,7 +57,7 @@ fn cloze_build_user_prompt(total_needing: usize, card_text: &str) -> String {
 
     user_prompt.push('\n');
     user_prompt.push_str(&format!(
-        "{} found {} cloze card{plural} missing bracketed deletions.\n",
+        "{} found {} cloze card{plural} missing bracketed deletions.",
         Palette::paint(Palette::INFO, "repeater"),
         Palette::paint(Palette::WARNING, total_needing),
         plural = plural,
