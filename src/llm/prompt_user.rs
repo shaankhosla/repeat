@@ -157,12 +157,15 @@ mod tests {
 
     #[test]
     fn test_cloze_prompt_color_formatting_numbers_only() {
+        use crate::utils::strip_controls_and_escapes;
+
         // Test that only numbers get colored, not the phrase "other cards"
         let card_text = "sample text";
         let user_prompt_3_cards = cloze_build_user_prompt(3, card_text);
+        let stripped = strip_controls_and_escapes(&user_prompt_3_cards);
 
         // The stripped version should have "2 other cards", not color codes around "other cards"
-        assert!(user_prompt_3_cards.contains("other cards"));
+        assert!(stripped.contains("2 other cards"));
         assert!(user_prompt_3_cards.contains("\u{1b}[33m2\u{1b}[0m other cards"));
 
         // Ensure the full phrase "2 other cards" is NOT wrapped in a single color code
@@ -181,29 +184,44 @@ mod tests {
 
     #[test]
     fn test_cloze_prompt_plural_handling() {
+        use crate::utils::strip_controls_and_escapes;
+
         let card_text = "sample";
 
         // Test singular
         let prompt_1 = cloze_build_user_prompt(1, card_text);
-        assert!(prompt_1.contains("cloze card"));
+        let stripped_1 = strip_controls_and_escapes(&prompt_1);
+        assert!(stripped_1.contains("1 cloze card missing bracketed deletions"));
+        assert!(!stripped_1.contains("cloze cards missing")); // Should not have plural
 
         // Test plural
         let prompt_2 = cloze_build_user_prompt(2, card_text);
-        assert!(prompt_2.contains("cloze cards"));
+        let stripped_2 = strip_controls_and_escapes(&prompt_2);
+        assert!(stripped_2.contains("2 cloze cards missing bracketed deletions"));
+        assert!(stripped_2.contains("1 other card")); // 2-1 = 1 other card (singular)
 
         // Test plural with multiple others
         let prompt_5 = cloze_build_user_prompt(5, card_text);
-        assert!(prompt_5.contains("cloze cards"));
+        let stripped_5 = strip_controls_and_escapes(&prompt_5);
+        assert!(stripped_5.contains("5 cloze cards missing bracketed deletions"));
+        assert!(stripped_5.contains("4 other cards")); // 5-1 = 4 other cards (plural)
     }
 
     #[test]
     fn test_rephrase_prompt_formatting() {
+        use crate::utils::strip_controls_and_escapes;
+
         let prompt = rephrase_build_user_prompt(3, "What is the capital?");
+        let stripped = strip_controls_and_escapes(&prompt);
 
         // Verify numbers are highlighted
         assert!(prompt.contains("\u{1b}[33m3\u{1b}[0m"));
 
         // Verify "repeater" is highlighted
         assert!(prompt.contains("\u{1b}[36mrepeater\u{1b}[0m"));
+
+        // Verify stripped version has expected text
+        assert!(stripped.contains("3 basic question"));
+        assert!(stripped.contains("What is the capital?"));
     }
 }

@@ -2,7 +2,7 @@ use std::env;
 
 use dialoguer::{Password, theme::ColorfulTheme};
 
-use crate::palette::Palette;
+use crate::{palette::Palette, utils::strip_controls_and_escapes};
 use anyhow::{Result, bail};
 
 use keyring::{Entry, Error as KeyringError};
@@ -46,12 +46,13 @@ pub fn prompt_for_api_key(prompt: &str) -> Result<String> {
         "{}",
         Palette::dim("This feature is optional, leave the field blank to skip.")
     );
-    let password = Password::with_theme(&ColorfulTheme::default())
+    let raw_password = Password::with_theme(&ColorfulTheme::default())
         .with_prompt("API Key")
         .allow_empty_password(true)
         .interact()
         .unwrap();
 
+    let password = strip_controls_and_escapes(&raw_password);
     Ok(password.trim().to_string())
 }
 
