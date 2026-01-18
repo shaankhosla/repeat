@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io;
@@ -5,7 +6,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use dialoguer::{Password, theme::ColorfulTheme};
-use serde_json::{Value, json};
+use serde::{Deserialize, Serialize};
 
 use crate::utils::get_data_dir;
 use crate::{palette::Palette, utils::strip_controls_and_escapes};
@@ -13,11 +14,23 @@ use crate::{palette::Palette, utils::strip_controls_and_escapes};
 pub const API_KEY_ENV: &str = "REPEATER_OPENAI_API_KEY";
 
 const AUTH_FILE_NAME: &str = "auth.json";
+const OPENAI_PROVIDER: &str = "openai";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApiKeySource {
     Environment,
     AuthFile,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct AuthFile {
+    #[serde(flatten)]
+    providers: HashMap<String, ProviderAuth>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProviderAuth {
+    key: String,
 }
 
 impl ApiKeySource {
@@ -35,15 +48,11 @@ pub fn clear_api_key() -> Result<bool> {
         return Ok(false);
     };
 
-    let obj = auth
-        .as_object_mut()
-        .ok_or_else(|| anyhow::anyhow!("Auth file root must be a JSON object"))?;
-
-    if obj.remove("openai").is_none() {
+    if auth.providers.remove(OPENAI_PROVIDER).is_none() {
         return Ok(false);
     }
 
-    if obj.is_empty() {
+    if auth.providers.is_empty() {
         fs::remove_file(&auth_path).with_context(|| {
             format!(
                 "Failed to remove empty auth file at {}",
@@ -90,17 +99,13 @@ pub fn store_api_key(api_key: &str) -> Result<()> {
     }
 
     let auth_path = auth_file_path()?;
-    let mut auth = read_auth_file(&auth_path)?.unwrap_or_else(|| json!({}));
-    let obj = auth
-        .as_object_mut()
-        .ok_or_else(|| anyhow::anyhow!("Auth file root must be a JSON object"))?;
+    let mut auth = read_auth_file(&auth_path)?.unwrap_or_default();
 
-    obj.insert(
-        "openai".to_string(),
-        json!({
-            "type": "api",
-            "key": trimmed,
-        }),
+    auth.providers.insert(
+        OPENAI_PROVIDER.to_string(),
+        ProviderAuth {
+            key: trimmed.to_string(),
+        },
     );
 
     write_auth_file(&auth_path, &auth)
@@ -127,10 +132,9 @@ pub fn get_api_key_from_sources() -> Result<ApiKeyLookup> {
     };
 
     let key = auth
-        .get("openai")
-        .and_then(|entry| entry.get("key"))
-        .and_then(|key| key.as_str())
-        .map(str::trim)
+        .providers
+        .get(OPENAI_PROVIDER)
+        .map(|entry| entry.key.trim())
         .filter(|value| !value.is_empty())
         .map(str::to_string);
 
@@ -152,13 +156,13 @@ fn auth_file_path() -> Result<PathBuf> {
     Ok(data_dir.join(AUTH_FILE_NAME))
 }
 
-fn read_auth_file(path: &PathBuf) -> Result<Option<Value>> {
+fn read_auth_file(path: &PathBuf) -> Result<Option<AuthFile>> {
     match fs::read_to_string(path) {
         Ok(contents) => {
             if contents.trim().is_empty() {
-                return Ok(Some(json!({})));
+                return Ok(Some(AuthFile::default()));
             }
-            let parsed: Value = serde_json::from_str(&contents)
+            let parsed: AuthFile = serde_json::from_str(&contents)
                 .with_context(|| format!("Failed to parse auth file at {}", path.display()))?;
             Ok(Some(parsed))
         }
@@ -169,7 +173,7 @@ fn read_auth_file(path: &PathBuf) -> Result<Option<Value>> {
     }
 }
 
-fn write_auth_file(path: &PathBuf, value: &Value) -> Result<()> {
+fn write_auth_file(path: &PathBuf, value: &AuthFile) -> Result<()> {
     let contents = serde_json::to_string_pretty(value)?;
     fs::write(path, format!("{}\n", contents))
         .with_context(|| format!("Failed to write auth file at {}", path.display()))?;
