@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use dialoguer::Input;
+use dialoguer::Confirm;
 use dialoguer::theme::ColorfulTheme;
 
 pub fn is_markdown(path: &Path) -> bool {
@@ -63,23 +63,12 @@ pub fn strip_controls_and_escapes(input: &str) -> String {
     out.trim().to_string()
 }
 
-pub fn ask_yn(prompt: String, default: bool) -> bool {
-    let default_str = if default { "y" } else { "n" }.to_string();
-
-    loop {
-        let s: String = Input::with_theme(&ColorfulTheme::default())
-            .with_prompt(format!("{prompt} [y/n]"))
-            .default(default_str.clone())
-            .interact_text() // shows editable input with cursor, waits for Enter
-            .unwrap();
-
-        match s.trim().to_lowercase().as_str() {
-            "" => return default,
-            "y" | "yes" => return true,
-            "n" | "no" => return false,
-            _ => eprintln!("Please answer y or n."),
-        }
-    }
+pub fn ask_yn(prompt: String) -> bool {
+    Confirm::with_theme(&ColorfulTheme::default())
+        .with_prompt(prompt)
+        .wait_for_newline(true)
+        .interact()
+        .unwrap()
 }
 
 #[cfg(test)]

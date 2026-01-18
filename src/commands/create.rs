@@ -42,10 +42,10 @@ pub async fn run(db: &DB, card_path: PathBuf) -> Result<()> {
 
     let file_exists = card_path.is_file();
     if !file_exists {
-        let should_create = ask_yn(
-            format!("Card '{}' does not exist. Create it?", card_path.display()),
-            false,
-        );
+        let should_create = ask_yn(format!(
+            "Card '{}' does not exist. Create it?",
+            card_path.display()
+        ));
         if !should_create {
             println!("Aborting; card not created.");
             return Ok(());
