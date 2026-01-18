@@ -1,16 +1,16 @@
 use crate::{
     card::CardType,
     crud::DB,
-    llm::prompt_user::ask_yn,
     parser::{cards_from_md, content_to_card},
     tui::Editor,
     tui::Theme,
+    utils::ask_yn,
     utils::is_markdown,
 };
 
 use std::{
     collections::HashSet,
-    fs::{self, OpenOptions},
+    fs::{self, File, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
     time::Duration,
@@ -42,18 +42,29 @@ pub async fn run(db: &DB, card_path: PathBuf) -> Result<()> {
 
     let file_exists = card_path.is_file();
     if !file_exists {
-        let should_create = ask_yn(
-            format!("Card '{}' does not exist. Create it?", card_path.display()),
-            false,
-        );
+        let should_create = ask_yn(format!(
+            "Card '{}' does not exist. Create it?",
+            card_path.display()
+        ));
         if !should_create {
             println!("Aborting; card not created.");
             return Ok(());
         }
+        create_file(&card_path)?;
     }
 
     capture_cards(db, &card_path).await?;
     Ok(())
+}
+
+fn create_file(path: &Path) -> Result<File> {
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
+    }
+    let file = OpenOptions::new().create(true).append(true).open(path)?;
+    Ok(file)
 }
 
 async fn create_card_append_file(db: &DB, path: &Path, contents: &str) -> Result<()> {
@@ -66,13 +77,8 @@ async fn create_card_append_file(db: &DB, path: &Path, contents: &str) -> Result
     if card_exists {
         bail!("This card already exists in the database.");
     }
-    if let Some(parent) = path.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent)?;
-    }
-    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
 
+    let mut file = create_file(path)?;
     if start_idx > 0 {
         writeln!(file)?;
     }

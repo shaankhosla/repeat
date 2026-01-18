@@ -1,5 +1,5 @@
-use crate::llm::prompt_user::ask_yn;
 use crate::llm::secrets::API_KEY_ENV;
+use crate::utils::ask_yn;
 use anyhow::{Context, Result, anyhow, bail};
 
 use async_openai::{Client, config::OpenAIConfig};
@@ -33,7 +33,7 @@ pub fn ensure_client(user_prompt: &str) -> Result<Client<OpenAIConfig>> {
 
     // If we didn't prompt for the API key (it already existed), confirm with the user
     if !prompted_for_key {
-        let ok = ask_yn(user_prompt.to_string(), true);
+        let ok = ask_yn(user_prompt.to_string());
         if !ok {
             bail!("Unable to proceed. Please consider using LLM to complete action.");
         }

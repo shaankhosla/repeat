@@ -1,5 +1,8 @@
 use std::path::Path;
 
+use dialoguer::Confirm;
+use dialoguer::theme::ColorfulTheme;
+
 pub fn is_markdown(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
@@ -58,6 +61,14 @@ pub fn strip_controls_and_escapes(input: &str) -> String {
     }
 
     out.trim().to_string()
+}
+
+pub fn ask_yn(prompt: String) -> bool {
+    Confirm::with_theme(&ColorfulTheme::default())
+        .with_prompt(prompt)
+        .wait_for_newline(true)
+        .interact()
+        .unwrap()
 }
 
 #[cfg(test)]
