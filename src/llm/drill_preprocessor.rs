@@ -7,6 +7,7 @@ use async_openai::config::OpenAIConfig;
 use super::prompt_user::{cloze_user_prompt, rephrase_user_prompt};
 use crate::card::{Card, CardContent, ClozeRange};
 use crate::cloze_utils::find_cloze_ranges;
+use crate::utils::pluralize;
 
 use super::{ensure_client, request_cloze};
 
@@ -61,14 +62,14 @@ impl DrillPreprocessor {
             Some(prompt) => {
                 let error_message = match (cards_needing_rephrase, cards_needing_clozes) {
                     (0, cloze) => format!(
-                        "Failed to initialize LLM client, cannot synthesize Cloze deletions for {cloze} Cloze cards without brackets"
+                        "Couldn't autofix {cloze} Cloze cards which lacked brackets. Please fix manually or enable feature."
                     ),
-                    (rephrase, 0) => format!(
-                        "Failed to initialize LLM client, cannot rephrase {rephrase} questions"
-                    ),
-                    (rephrase, cloze) => format!(
-                        "Failed to initialize LLM client, cannot rephrase {rephrase} questions or synthesize Cloze deletions for {cloze} cards"
-                    ),
+                    (rephrase, 0) => format!("Cannot rephrase {rephrase} questions"),
+                    (rephrase, cloze) => {
+                        format!(
+                            "Cannot rephrase {rephrase} questions or autofix {cloze} cards. Please fix manually or enable feature."
+                        )
+                    }
                 };
                 Some(
                     ensure_client(&prompt)
