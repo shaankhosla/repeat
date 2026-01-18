@@ -13,7 +13,7 @@ use crate::parser::{Media, extract_media};
 use crate::tui::Theme;
 use crate::utils::pluralize;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use crossterm::event::KeyModifiers;
 use crossterm::{
     event::{
@@ -194,20 +194,14 @@ async fn start_drill_session(
     terminal.hide_cursor().context("failed to hide cursor")?;
 
     let (ai_updates_tx, mut ai_updates_rx) = mpsc::unbounded_channel();
-    let preprocess_result = if drill_preprocessor.llm_required() {
+    let mut ai_preprocess_handle = if drill_preprocessor.llm_required() {
         let ai_cards = cards.clone();
-        let handle = tokio::spawn(async move {
+        Some(tokio::spawn(async move {
             preprocess_cards_in_order(drill_preprocessor, ai_cards, ai_updates_tx).await
-        });
-        handle.await?
+        }))
     } else {
-        Ok(())
+        None
     };
-
-    if let Err(err) = preprocess_result {
-        let _ = teardown_terminal(&mut terminal);
-        return Err(err);
-    }
 
     let mut state = DrillState::new(db, cards);
 
@@ -219,6 +213,18 @@ async fn start_drill_session(
 
             while let Ok(update) = ai_updates_rx.try_recv() {
                 state.apply_ai_update(update);
+            }
+
+            if let Some(handle) = &mut ai_preprocess_handle
+                && handle.is_finished()
+            {
+                let result = handle
+                    .await
+                    .map_err(|err| anyhow!("AI preprocessing task failed: {err}"))?;
+                if let Err(err) = result {
+                    break Err(err);
+                }
+                ai_preprocess_handle = None;
             }
 
             terminal
